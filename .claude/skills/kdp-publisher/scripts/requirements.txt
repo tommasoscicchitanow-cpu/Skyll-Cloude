@@ -1,0 +1,7 @@
+# KDP Publisher skill dependencies
+reportlab>=4.0      # interior + cover PDF assembly
+Pillow>=10.0        # image handling / DPI checks
+PyYAML>=6.0         # book spec parsing
+playwright>=1.40    # KDP form automation (run: python -m playwright install chromium)
+# pandoc is used for Markdown -> EPUB (Kindle ebook). Install separately from your OS package
+# manager (e.g. `apt install pandoc` / `brew install pandoc`); it is not a pip package.
