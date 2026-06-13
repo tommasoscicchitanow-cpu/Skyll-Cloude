@@ -1,0 +1,18 @@
+# Book spec for build_interior.py / build_cover.py.
+# Fill this per title. Margins/gutter are auto-derived from page count; override if needed.
+title: "The Lighthouse at Dusk"
+subtitle: ""                 # non-fiction usually has one; novels often don't
+author: "A. Writer"
+copyright: "Copyright © 2026 A. Writer. All rights reserved."
+
+trim: "6x9"                  # see references/trim-sizes.md
+paper: "cream"              # white | cream | color-standard | color-premium
+
+# Typography (sensible defaults; tweak per design)
+body_font: "Times-Roman"
+body_size: 11
+leading: 15
+outer_margin: 0.6
+top_margin: 0.75
+bottom_margin: 0.75
+running_heads: true
