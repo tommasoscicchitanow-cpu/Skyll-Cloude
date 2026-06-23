@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_face_name">Celestia</string>
+    <string name="notif_complication_label">Notification Constellation</string>
+
+    <!-- User-style settings (editor) -->
+    <string name="setting_palette">Sky palette</string>
+    <string name="setting_palette_description">Hue of the celestial dome</string>
+    <string name="palette_deep_space">Deep Space</string>
+    <string name="palette_aurora">Aurora</string>
+    <string name="palette_ember">Ember</string>
+
+    <string name="setting_biofeedback">Heart pulse</string>
+    <string name="setting_biofeedback_description">Pulse the central nebula with your heart rate</string>
+</resources>

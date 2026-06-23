@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Declares the wallpaper service as a watch face for the picker. -->
+<wallpaper xmlns:android="http://schemas.android.com/apk/res/android" />

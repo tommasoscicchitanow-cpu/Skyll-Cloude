@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="320dp"
+    android:viewportWidth="320"
+    android:viewportHeight="320">
+    <path
+        android:fillColor="#05070F"
+        android:pathData="M160,160m-160,0a160,160 0,1 1,320 0a160,160 0,1 1,-320 0" />
+    <!-- Central nebula -->
+    <path
+        android:fillColor="#5AA0FF"
+        android:fillAlpha="0.6"
+        android:pathData="M160,160m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <!-- Battery comet arc (watch) -->
+    <path
+        android:strokeColor="#5AAAFF"
+        android:strokeWidth="8"
+        android:strokeAlpha="0.9"
+        android:pathData="M160,18 A142,142 0 0 1 290,230" />
+    <!-- A few stars -->
+    <path android:fillColor="#FFFFFF" android:pathData="M70,80l3,3 -3,3 -3,-3z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M240,90l3,3 -3,3 -3,-3z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M110,210l3,3 -3,3 -3,-3z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M210,240l3,3 -3,3 -3,-3z" />
+</vector>
