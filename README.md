@@ -16,3 +16,16 @@ A dynamic-astronomy watch face for **Wear OS** (Xiaomi Watch 2), built with the
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full class map, calculation
 logic, and rendering pipeline.
+
+## Build & install
+
+Open the project root in **Android Studio**, or use the included Gradle wrapper.
+To install on a Xiaomi Watch 2 over Wireless Debugging, run from PowerShell:
+
+```powershell
+.\install.ps1 -Pair        # first time (pairs, builds, installs)
+.\install.ps1              # subsequent runs
+```
+
+Full step-by-step guide (developer options, permissions, troubleshooting) in
+[`SETUP.md`](SETUP.md).
