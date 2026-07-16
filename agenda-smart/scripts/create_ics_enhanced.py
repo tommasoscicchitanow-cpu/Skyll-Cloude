@@ -23,23 +23,30 @@ from anti_sabotage_phrases import AntiSabotageGenerator
 from task_analyzer import TaskAnalyzer, TaskCategory
 
 
+# Cartella "download" di Claude: e' l'UNICA i cui file vengono resi
+# scaricabili dall'utente. Va quindi creata e usata come destinazione primaria.
+DOWNLOAD_DIR = "/mnt/user-data/outputs"
+
+
 def resolve_output_dir() -> str:
     """Restituisce una cartella di output scrivibile, con fallback robusti.
 
     Ordine di preferenza:
       1. Variabile d'ambiente AGENDA_SMART_OUTPUT_DIR (se impostata)
-      2. /mnt/user-data/outputs  (cartella download standard di Claude)
+      2. /mnt/user-data/outputs  (cartella download di Claude)
       3. Cartella di lavoro corrente
       4. Cartella temporanea di sistema (ultima spiaggia)
 
-    La cartella scelta viene creata se non esiste. Evita gli errori di accesso
-    quando le cartelle interne di Claude non sono disponibili o scrivibili.
+    La cartella scelta viene creata se non esiste. Se non e' possibile usare la
+    cartella download, viene stampato un avviso esplicito su stderr: cosi'
+    l'utente sa sempre dove trovare il file (evita i file "spariti" e i
+    "non riesco ad accedere alla cartella download").
     """
     candidates = []
     env_dir = os.environ.get("AGENDA_SMART_OUTPUT_DIR")
     if env_dir:
         candidates.append(env_dir)
-    candidates.append("/mnt/user-data/outputs")
+    candidates.append(DOWNLOAD_DIR)
     candidates.append(os.getcwd())
     candidates.append(tempfile.gettempdir())
 
@@ -47,6 +54,13 @@ def resolve_output_dir() -> str:
         try:
             os.makedirs(directory, exist_ok=True)
             if os.access(directory, os.W_OK):
+                if os.path.abspath(directory) != os.path.abspath(DOWNLOAD_DIR):
+                    print(
+                        "⚠️  Cartella download non disponibile: il file verra' "
+                        f"salvato in '{directory}'. Se non lo vedi tra i download, "
+                        "cercalo in quel percorso.",
+                        file=sys.stderr,
+                    )
                 return directory
         except OSError:
             continue
