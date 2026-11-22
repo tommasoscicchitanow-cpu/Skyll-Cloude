@@ -84,3 +84,12 @@ def test_disattivato_rifiuta_partizione_reale(preparato):
     bio, ident = preparato
     with pytest.raises(SistemaDisattivato):
         vc.monta(bio, ident, r"\Device\Harddisk0\Partition3", "X", esegui=lambda c: None, attivo=False)
+
+
+def test_riga_di_comando_veracrypt_accetta_fattore_e_prova(monkeypatch):
+    from protezione_acutis import __main__ as cli
+
+    visti = {}
+    monkeypatch.setattr(cli, "_veracrypt", lambda a: visti.update(vars(a)) or 0)
+    assert cli.main(["veracrypt-monta", "--fattore", "hello", "--prova", "V", "X"]) == 0
+    assert visti["fattore"] == "hello" and visti["prova"] is True and visti["volume"] == "V"

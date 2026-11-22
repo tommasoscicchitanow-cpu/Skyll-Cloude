@@ -8,9 +8,9 @@
   python -m protezione_acutis prova-passkey
                                       come sopra, ma con lo smartphone come
                                       lettore d'impronte (passkey)
-  python -m protezione_acutis veracrypt-prepara
-  python -m protezione_acutis veracrypt-keyfile
-  python -m protezione_acutis veracrypt-monta VOLUME LETTERA
+  python -m protezione_acutis veracrypt-prepara [--fattore hello] [--prova]
+  python -m protezione_acutis veracrypt-keyfile [--fattore hello] [--prova]
+  python -m protezione_acutis veracrypt-monta [--fattore hello] [--prova] VOLUME LETTERA
                                       volume VeraCrypt con frase + file chiave
                                       rilasciato dall'impronta sul telefono
   python -m protezione_acutis cifra FILE / decifra FILE
@@ -138,29 +138,54 @@ def _prova_passkey() -> int:
     return 0
 
 
-IDENTIFICATIVO_VC = Path.home() / ".protezione-acutis" / "chiave-veracrypt.json"
+CARTELLA_VC = Path.home() / ".protezione-acutis"
 
 
 def _veracrypt(argomenti) -> int:
-    from . import veracrypt as vc
-    from .passkey import BiometriaPasskey
+    """Comandi VeraCrypt.
 
-    telefono = BiometriaPasskey()
+    --fattore sceglie chi rilascia l'impronta: "passkey" (smartphone o chiave
+    FIDO2) oppure "hello" (Windows Hello del PC).
+    --prova usa un identificativo e una chiave separati, solo per la prova:
+    possono essere buttati via senza toccare la configurazione definitiva.
+    Con --prova il montaggio è consentito anche a sistema spento, ma SOLO per
+    il volume creato in prova.
+    """
+    from . import veracrypt as vc
+
+    suffisso = "-prova" if argomenti.prova else ""
+    identificativo = CARTELLA_VC / f"chiave-veracrypt{suffisso}.json"
+    if argomenti.fattore == "hello":
+        from .windows_hello import BiometriaWindowsHello
+
+        fattore = BiometriaWindowsHello(nome_chiave=f"protezione-acutis-vc{suffisso}")
+        dove = "con Windows Hello (impronta o PIN del PC)"
+    else:
+        from .passkey import BiometriaPasskey
+
+        fattore = BiometriaPasskey()
+        dove = "con l'impronta sul telefono"
+
     if argomenti.comando == "veracrypt-prepara":
-        IDENTIFICATIVO_VC.parent.mkdir(exist_ok=True)
-        print("Conferma con l'impronta sul telefono per registrare la passkey.")
-        vc.prepara(telefono, IDENTIFICATIVO_VC)
-        print(f"Fatto. Identificativo pubblico salvato in {IDENTIFICATIVO_VC}")
+        CARTELLA_VC.mkdir(exist_ok=True)
+        print(f"Conferma {dove} per registrare la chiave.")
+        vc.prepara(fattore, identificativo)
+        print(f"Fatto. Identificativo pubblico salvato in {identificativo}")
         return 0
     if argomenti.comando == "veracrypt-keyfile":
-        contenuto = vc.calcola_keyfile(telefono, IDENTIFICATIVO_VC)
+        print(f"Conferma {dove} per sbloccare il file chiave.")
+        contenuto = vc.calcola_keyfile(fattore, identificativo)
         with vc.keyfile_temporaneo(contenuto) as keyfile:
-            print(f"File chiave temporaneo: {keyfile}")
-            print("Selezionalo in VeraCrypt (Usa file chiave), completa, poi premi Invio qui.")
+            print(f"\nFile chiave temporaneo: {keyfile}")
+            print("In VeraCrypt spunta 'Usa file chiave', premi 'File chiave...',")
+            print("'Aggiungi file' e scegli il file qui sopra. Finita l'operazione")
+            print("in VeraCrypt, torna qui e premi Invio: il file verrà distrutto.")
             input()
         print("File chiave distrutto.")
         return 0
-    return vc.monta(telefono, IDENTIFICATIVO_VC, argomenti.volume, argomenti.lettera)
+    print(f"Conferma {dove}; poi VeraCrypt ti chiederà la frase.")
+    attivo = True if argomenti.prova else None
+    return vc.monta(fattore, identificativo, argomenti.volume, argomenti.lettera, attivo=attivo)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,11 +195,13 @@ def main(argv: list[str] | None = None) -> int:
     sotto.add_parser("prova")
     sotto.add_parser("prova-hello")
     sotto.add_parser("prova-passkey")
-    sotto.add_parser("veracrypt-prepara")
-    sotto.add_parser("veracrypt-keyfile")
-    monta = sotto.add_parser("veracrypt-monta")
-    monta.add_argument("volume")
-    monta.add_argument("lettera")
+    for nome in ("veracrypt-prepara", "veracrypt-keyfile", "veracrypt-monta"):
+        comando_vc = sotto.add_parser(nome)
+        comando_vc.add_argument("--fattore", choices=["passkey", "hello"], default="passkey")
+        comando_vc.add_argument("--prova", action="store_true")
+        if nome == "veracrypt-monta":
+            comando_vc.add_argument("volume")
+            comando_vc.add_argument("lettera")
     for nome in ("cifra", "decifra"):
         sotto.add_parser(nome).add_argument("file", type=Path)
     argomenti = parser.parse_args(argv)
