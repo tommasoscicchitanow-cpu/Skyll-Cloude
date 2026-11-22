@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude/plugins/caveman"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "caveman@caveman": true
+  }
+}
