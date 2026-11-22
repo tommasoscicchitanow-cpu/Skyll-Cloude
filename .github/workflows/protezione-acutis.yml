@@ -1,0 +1,25 @@
+name: protezione-acutis
+
+on:
+  push:
+    paths: ["protezione-acutis/**", ".github/workflows/protezione-acutis.yml"]
+  pull_request:
+    paths: ["protezione-acutis/**", ".github/workflows/protezione-acutis.yml"]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: protezione-acutis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+      - run: python -m protezione_acutis prova
