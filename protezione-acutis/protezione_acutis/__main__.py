@@ -5,6 +5,9 @@
   python -m protezione_acutis prova-hello
                                       prova con l'impronta vera (Windows Hello),
                                       solo in memoria e su dati inventati
+  python -m protezione_acutis prova-passkey
+                                      come sopra, ma con lo smartphone come
+                                      lettore d'impronte (passkey)
   python -m protezione_acutis cifra FILE / decifra FILE
                                       disponibili solo dopo l'attivazione
 """
@@ -93,12 +96,50 @@ def _prova_hello() -> int:
     return 0
 
 
+def _prova_passkey() -> int:
+    """Smartphone come lettore d'impronte, su un testo inventato in memoria."""
+    from .cripto import ParametriArgon2, cifra, decifra
+    from .passkey import BiometriaPasskey
+
+    frase = "frase di prova inventata per lo smartphone"
+    testo = b"Testo inventato per provare il telefono."
+    p = ParametriArgon2.per_test()
+    telefono = BiometriaPasskey()
+    try:
+        print("Nella finestra di Windows scegli 'iPhone, iPad o dispositivo Android',")
+        print("inquadra il QR con il telefono e conferma con l'impronta.")
+        contenitore = cifra(testo, frase, telefono, p)
+        print("Ora conferma di nuovo sul telefono, per decifrare.")
+        assert decifra(contenitore, frase, telefono, p) == testo
+        print("1. Impronta sul telefono + frase giusta: decifrato, OK")
+        print("Ancora una volta, con una frase sbagliata.")
+        try:
+            decifra(contenitore, frase + "x", telefono, p)
+            print("2. ERRORE: frase sbagliata accettata")
+            return 1
+        except ErroreDecifratura:
+            print("2. Impronta giusta + frase sbagliata: rifiutato, OK")
+        print("Ora, alla prossima richiesta, annulla sul telefono.")
+        try:
+            decifra(contenitore, frase, telefono, p)
+            print("3. Hai confermato: decifrato (prova di annullamento saltata)")
+        except BiometriaNegata:
+            print("3. Impronta annullata: rifiutato, OK")
+    except BiometriaNegata as errore:
+        print(f"Passkey non disponibile: {errore}", file=sys.stderr)
+        return 4
+    print("\nProva con lo smartphone completata. Puoi cancellare la passkey di")
+    print("prova 'protezione-acutis.local' dal gestore password del telefono.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="protezione_acutis")
     sotto = parser.add_subparsers(dest="comando", required=True)
     sotto.add_parser("stato")
     sotto.add_parser("prova")
     sotto.add_parser("prova-hello")
+    sotto.add_parser("prova-passkey")
     for nome in ("cifra", "decifra"):
         sotto.add_parser(nome).add_argument("file", type=Path)
     argomenti = parser.parse_args(argv)
@@ -110,6 +151,8 @@ def main(argv: list[str] | None = None) -> int:
         return _prova()
     if argomenti.comando == "prova-hello":
         return _prova_hello()
+    if argomenti.comando == "prova-passkey":
+        return _prova_passkey()
 
     if not sistema_attivo():
         print(

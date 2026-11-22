@@ -10,6 +10,8 @@ Prototipo di cifratura dei file riservati con **due fattori obbligatori**: impro
 |---|---|
 | `protezione_acutis/cripto.py` | Argon2id (frase), HKDF-SHA256 (unione dei fattori), AES-256-GCM (cifratura con intestazione autenticata) |
 | `protezione_acutis/biometria.py` | Interfaccia `FattoreBiometrico` indipendente dalla piattaforma e `BiometriaSimulata` per le prove |
+| `protezione_acutis/windows_hello.py` | Impronta tramite Windows Hello (chiave nel TPM del PC) |
+| `protezione_acutis/passkey.py` | Impronta tramite smartphone o chiave FIDO2 (passkey con estensione PRF); i file restano sul PC |
 | `protezione_acutis/attivazione.py` | Interruttore: da spento lavora solo in cartelle temporanee e solo con biometria simulata |
 | `protezione_acutis/__main__.py` | Comandi `stato`, `prova`, `cifra`, `decifra` |
 | `configurazione.json` | Deve restare `"attivo": false`. L'accensione avviene con un file locale escluso da git (vedi guida, passo 5) |

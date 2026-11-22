@@ -58,7 +58,22 @@ python -m protezione_acutis prova-hello
 
 La prova usa il sensore vero ma solo un testo inventato tenuto in memoria: non legge né scrive file, e alla fine cancella la chiave di prova.
 
-Un limite da conoscere: Windows Hello accetta anche il suo PIN al posto dell'impronta, e il programma non può impedirlo. Scegli quindi un PIN Hello lungo e diverso da tutti gli altri. La frase segreta resta comunque obbligatoria in ogni caso.
+#### In alternativa: lo smartphone come lettore d'impronte
+
+Se il PC non ha un lettore d'impronte, o preferisci usare il telefono, c'è `protezione_acutis/passkey.py`. I file **restano solo sul PC**: il telefono fa solo da sensore, collegato via Bluetooth.
+
+1. Attiva il Bluetooth sul PC e sul telefono.
+2. Lancia `python -m protezione_acutis prova-passkey`.
+3. Nella finestra di Windows scegli "iPhone, iPad o dispositivo Android" e inquadra il codice QR con la fotocamera del telefono.
+4. Conferma con l'impronta sul telefono. Le volte successive il telefono viene riconosciuto da solo.
+
+Servono Windows 11 aggiornato e un telefono Android 9 o successivo (con Gestore password di Google) oppure un iPhone con iOS 18 o successivo. Se il telefono o Windows non supportano la funzione necessaria (si chiama PRF), il programma lo dice e rifiuta di proteggere i file, invece di proteggerli male.
+
+Questo stesso metodo funziona anche con una chiave di sicurezza FIDO2 con impronta, utile come chiave di riserva (passo 4). Come per Windows Hello, se il telefono si sblocca anche con un PIN o una sequenza, chi la conosce può sostituire l'impronta: usa un codice di sblocco lungo. La frase resta comunque obbligatoria.
+
+#### Un limite di Windows Hello
+
+Windows Hello accetta anche il suo PIN al posto dell'impronta, e il programma non può impedirlo. Scegli quindi un PIN Hello lungo e diverso da tutti gli altri. La frase segreta resta comunque obbligatoria in ogni caso.
 
 ### Passo 4. Prepara una chiave di riserva
 
