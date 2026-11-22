@@ -1,0 +1,30 @@
+{
+  "name": "cielo-reale",
+  "version": "0.1.0",
+  "description": "Tema natale secondo le posizioni astronomiche reali: tropicale, siderale e costellazioni IAU a confronto.",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tommasoscicchitanow-cpu/Skyll-Cloude.git"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "chart": "tsx scripts/chart-cli.ts"
+  },
+  "dependencies": {
+    "astronomy-engine": "^2.1.19",
+    "luxon": "^3.7.2",
+    "tz-lookup": "^6.1.25"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.3",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.8",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
