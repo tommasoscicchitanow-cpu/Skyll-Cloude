@@ -108,7 +108,33 @@ Nota: su dischi SSD la cancellazione di un file non garantisce che i dati sparis
 
 Quando hai verificato che tutto si apre, la copia del passo 1 non serve più: distruggila o tienila tu in un luogo fisicamente sicuro.
 
-## Partizione o contenitore VeraCrypt con doppia chiave
+## Archivio cifrato interno (consigliato, al posto di VeraCrypt)
+
+Il programma ha un suo archivio cifrato: non serve installare VeraCrypt né altri programmi. L'archivio è una cartella, per esempio sulla partizione da 500 GB del disco E:, che dall'esterno contiene solo file con nomi casuali e contenuto illeggibile. **Anche i nomi dei file, le dimensioni e le date sono cifrati.**
+
+Per aprirlo servono sempre la tua frase, che scrivi nella finestra del programma sul PC (non viene mostrata né salvata), e l'impronta.
+
+**Perché algoritmi standard e non uno inventato.** Il codice dell'archivio è nostro, ma la matematica della cifratura è quella pubblica e studiata da anni (AES-256-GCM, Argon2id, HKDF). Un algoritmo inedito non è mai stato messo alla prova dagli esperti e quasi certamente avrebbe punti deboli che oggi nessuno vede: per proteggere le fonti serve il contrario.
+
+**Differenze rispetto a VeraCrypt.** Non compare un disco con una lettera: i file si aggiungono, si elencano e si estraggono con i comandi qui sotto. Quando estrai un file per lavorarci, quella copia è in chiaro: tienila il meno possibile e poi cancellala. In cambio non serve installare nulla, e ogni file è protetto anche contro le modifiche (un solo byte alterato viene rilevato).
+
+### Comandi
+
+Sul tuo PC, nella cartella del programma, al posto di `python` usa `.venv\Scripts\python`. Aggiungi `--fattore hello` per usare Windows Hello del PC, oppure lascialo via per usare il telefono.
+
+```bash
+python -m protezione_acutis archivio-crea      --fattore hello CARTELLA
+python -m protezione_acutis archivio-aggiungi  --fattore hello CARTELLA file1 file2 ...
+python -m protezione_acutis archivio-elenca    --fattore hello CARTELLA
+python -m protezione_acutis archivio-estrai    --fattore hello CARTELLA NOME DESTINAZIONE
+python -m protezione_acutis archivio-rimuovi   --fattore hello CARTELLA NOME
+```
+
+Da spento l'archivio può stare solo nella cartella temporanea. Per la prova sulla partizione vera si aggiunge `--prova`, **solo con una frase di prova e file inventati**. Dopo l'aggiunta i file originali non vengono cancellati: fallo tu, dopo aver verificato che si estraggono correttamente.
+
+## Partizione o contenitore VeraCrypt con doppia chiave (alternativa)
+
+Resta disponibile se in futuro preferirai un disco con lettera di unità; richiede di installare VeraCrypt.
 
 Invece di cifrare i file uno per uno, puoi tenere tutto il materiale in un volume VeraCrypt (una partizione dedicata o un grande file contenitore). Il volume si apre solo con **due** elementi:
 

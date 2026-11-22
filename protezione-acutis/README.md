@@ -12,6 +12,7 @@ Prototipo di cifratura dei file riservati con **due fattori obbligatori**: impro
 | `protezione_acutis/biometria.py` | Interfaccia `FattoreBiometrico` indipendente dalla piattaforma e `BiometriaSimulata` per le prove |
 | `protezione_acutis/windows_hello.py` | Impronta tramite Windows Hello (chiave nel TPM del PC) |
 | `protezione_acutis/passkey.py` | Impronta tramite smartphone o chiave FIDO2 (passkey con estensione PRF); i file restano sul PC |
+| `protezione_acutis/archivio.py` | Archivio cifrato interno (consigliato): cartella con nomi casuali, indice cifrato, blocchi AES-256-GCM autenticati, chiave principale avvolta da frase + impronta |
 | `protezione_acutis/veracrypt.py` | Volume VeraCrypt con frase + file chiave ricalcolato dall'impronta, mai salvato |
 | `protezione_acutis/attivazione.py` | Interruttore: da spento lavora solo in cartelle temporanee e solo con biometria simulata |
 | `protezione_acutis/__main__.py` | Comandi `stato`, `prova`, `cifra`, `decifra` |

@@ -13,6 +13,12 @@
   python -m protezione_acutis veracrypt-monta [--fattore hello] [--prova] VOLUME LETTERA
                                       volume VeraCrypt con frase + file chiave
                                       rilasciato dall'impronta sul telefono
+  python -m protezione_acutis archivio-crea|archivio-elenca CARTELLA
+  python -m protezione_acutis archivio-aggiungi CARTELLA FILE...
+  python -m protezione_acutis archivio-estrai CARTELLA NOME DESTINAZIONE
+  python -m protezione_acutis archivio-rimuovi CARTELLA NOME
+                                      archivio cifrato interno (al posto di
+                                      VeraCrypt); opzioni --fattore, --prova
   python -m protezione_acutis cifra FILE / decifra FILE
                                       disponibili solo dopo l'attivazione
 """
@@ -188,6 +194,60 @@ def _veracrypt(argomenti) -> int:
     return vc.monta(fattore, identificativo, argomenti.volume, argomenti.lettera, attivo=attivo)
 
 
+def _fattore(nome: str, prova: bool, chiave_hello: str):
+    if nome == "hello":
+        from .windows_hello import BiometriaWindowsHello
+
+        suffisso = "-prova" if prova else ""
+        return BiometriaWindowsHello(nome_chiave=f"{chiave_hello}{suffisso}"), "con Windows Hello"
+    from .passkey import BiometriaPasskey
+
+    return BiometriaPasskey(), "con l'impronta sul telefono"
+
+
+def _archivio(argomenti) -> int:
+    """Archivio cifrato interno. La frase si digita qui, sul PC, e non viene
+    mostrata né salvata. Con --prova l'archivio può stare anche fuori dalla
+    cartella temporanea a sistema spento: usarlo SOLO con file inventati."""
+    import getpass
+
+    from .archivio import Archivio
+
+    fattore, dove = _fattore(argomenti.fattore, argomenti.prova, "protezione-acutis-archivio")
+    attivo = True if argomenti.prova else None
+    cartella = Path(argomenti.cartella)
+
+    if argomenti.comando == "archivio-crea":
+        frase = getpass.getpass("Nuova frase segreta: ")
+        if getpass.getpass("Ripeti la frase: ") != frase:
+            print("Le due frasi non coincidono.", file=sys.stderr)
+            return 2
+        print(f"Conferma {dove}.")
+        Archivio.crea(cartella, frase, fattore, attivo=attivo).chiudi()
+        print(f"Archivio creato in {cartella}")
+        return 0
+
+    frase = getpass.getpass("Frase segreta: ")
+    print(f"Conferma {dove}.")
+    with Archivio.apri(cartella, frase, fattore, attivo=attivo) as archivio:
+        del frase
+        if argomenti.comando == "archivio-elenca":
+            voci = archivio.elenca()
+            for voce in voci:
+                print(f"{voce['dimensione']:>12}  {voce['nome']}")
+            print(f"{len(voci)} file.")
+        elif argomenti.comando == "archivio-aggiungi":
+            for origine in argomenti.file:
+                print("Aggiunto:", archivio.aggiungi_file(Path(origine)))
+            print("Gli originali NON sono stati cancellati: fallo tu dopo aver verificato.")
+        elif argomenti.comando == "archivio-estrai":
+            print("Estratto in:", archivio.estrai(argomenti.nome, Path(argomenti.destinazione)))
+        elif argomenti.comando == "archivio-rimuovi":
+            archivio.rimuovi(argomenti.nome)
+            print("Rimosso:", argomenti.nome)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="protezione_acutis")
     sotto = parser.add_subparsers(dest="comando", required=True)
@@ -195,6 +255,19 @@ def main(argv: list[str] | None = None) -> int:
     sotto.add_parser("prova")
     sotto.add_parser("prova-hello")
     sotto.add_parser("prova-passkey")
+    for nome, extra in (
+        ("archivio-crea", []),
+        ("archivio-elenca", []),
+        ("archivio-aggiungi", [("file", {"nargs": "+"})]),
+        ("archivio-estrai", [("nome", {}), ("destinazione", {})]),
+        ("archivio-rimuovi", [("nome", {})]),
+    ):
+        comando_ar = sotto.add_parser(nome)
+        comando_ar.add_argument("--fattore", choices=["passkey", "hello"], default="passkey")
+        comando_ar.add_argument("--prova", action="store_true")
+        comando_ar.add_argument("cartella")
+        for argomento, opzioni in extra:
+            comando_ar.add_argument(argomento, **opzioni)
     for nome in ("veracrypt-prepara", "veracrypt-keyfile", "veracrypt-monta"):
         comando_vc = sotto.add_parser(nome)
         comando_vc.add_argument("--fattore", choices=["passkey", "hello"], default="passkey")
@@ -215,6 +288,15 @@ def main(argv: list[str] | None = None) -> int:
         return _prova_hello()
     if argomenti.comando == "prova-passkey":
         return _prova_passkey()
+    if argomenti.comando.startswith("archivio-"):
+        from .cripto import ErroreFormato, FraseDebole
+
+        try:
+            return _archivio(argomenti)
+        except (BiometriaNegata, ErroreDecifratura, ErroreFormato, FraseDebole,
+                FileNotFoundError, FileExistsError, SistemaDisattivato) as errore:
+            print(errore, file=sys.stderr)
+            return 4
     if argomenti.comando.startswith("veracrypt-"):
         try:
             return _veracrypt(argomenti)
