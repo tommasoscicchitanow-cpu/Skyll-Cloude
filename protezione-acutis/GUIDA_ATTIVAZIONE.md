@@ -130,7 +130,12 @@ Le prove si fanno solo su un **contenitore di prova** nella cartella temporanea,
 
 ### All'attivazione
 
-Si ripetono gli stessi passi su una partizione dedicata o un contenitore definitivo, con la frase vera, **solo dopo un backup completo del disco**. Attenzione: Windows mostra una partizione VeraCrypt come "non formattata"; non accettare mai la proposta di formattarla.
+Il volume definitivo sarà una **partizione dedicata sul disco esterno**: il disco viene diviso in due, una parte normale e una parte cifrata solo per il materiale riservato.
+
+1. Fai un backup completo del disco esterno su un altro supporto.
+2. In Gestione disco di Windows riduci la partizione esistente per liberare lo spazio, oppure crea una nuova partizione vuota senza lettera di unità.
+3. In VeraCrypt scegli "Crea volume", poi "Crea un volume all'interno di una partizione/unità", seleziona **quella partizione** (controlla due volte numero di disco e dimensione) e ripeti i passi 4 e 6 delle prove con la frase vera.
+4. Per aprirla: `python -m protezione_acutis veracrypt-monta \Device\HarddiskN\PartitionM X`, dove N e M sono i numeri che VeraCrypt mostra in "Seleziona dispositivo". Attenzione: Windows mostra una partizione VeraCrypt come "non formattata"; non accettare mai la proposta di formattarla.
 
 ## Claude e il materiale riservato
 
