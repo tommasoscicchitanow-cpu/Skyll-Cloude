@@ -108,6 +108,30 @@ Nota: su dischi SSD la cancellazione di un file non garantisce che i dati sparis
 
 Quando hai verificato che tutto si apre, la copia del passo 1 non serve più: distruggila o tienila tu in un luogo fisicamente sicuro.
 
+## Partizione o contenitore VeraCrypt con doppia chiave
+
+Invece di cifrare i file uno per uno, puoi tenere tutto il materiale in un volume VeraCrypt (una partizione dedicata o un grande file contenitore). Il volume si apre solo con **due** elementi:
+
+* **la tua frase**, che scrivi direttamente nella finestra di VeraCrypt;
+* **un file chiave** che non è salvato da nessuna parte: il programma lo ricalcola ogni volta dal segreto che il telefono rilascia solo dopo la tua impronta, lo tiene su disco per pochi secondi e poi lo distrugge.
+
+Chi ruba il PC trova solo un disco illeggibile e un piccolo file `chiave-veracrypt.json` che, senza il tuo telefono e il tuo dito, non serve a nulla.
+
+### Prove (sistema spento)
+
+Le prove si fanno solo su un **contenitore di prova** nella cartella temporanea, mai su una partizione o un disco veri: il programma rifiuta qualunque altro volume finché il sistema è spento.
+
+1. Installa VeraCrypt dal sito ufficiale `veracrypt.io`.
+2. `python -m protezione_acutis veracrypt-prepara` registra la passkey sul telefono.
+3. Apri VeraCrypt, scegli "Crea volume", "Crea un file contenitore cifrato", e salvalo nella cartella temporanea (`%TEMP%\prova.hc`, 50 MB bastano).
+4. Alla richiesta della password scrivi una **frase di prova** (non quella vera), spunta "Usa file chiave" e, in un'altra finestra, lancia `python -m protezione_acutis veracrypt-keyfile`: dopo l'impronta ti indica il file da selezionare. Finita la creazione premi Invio e il file chiave viene distrutto.
+5. Prova ad aprirlo: `python -m protezione_acutis veracrypt-monta %TEMP%\prova.hc X`. Impronta sul telefono, poi VeraCrypt chiede la frase.
+6. Verifica che senza impronta, o con la frase sbagliata, il volume non si apra.
+
+### All'attivazione
+
+Si ripetono gli stessi passi su una partizione dedicata o un contenitore definitivo, con la frase vera, **solo dopo un backup completo del disco**. Attenzione: Windows mostra una partizione VeraCrypt come "non formattata"; non accettare mai la proposta di formattarla.
+
 ## Claude e il materiale riservato
 
 * **Claude non riceve mai la frase.** Quando un file va aperto, la frase la scrivi tu nella finestra del programma sul tuo PC, mai in chat. Allo stesso modo l'impronta la dai tu al sensore.

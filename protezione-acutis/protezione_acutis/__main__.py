@@ -8,6 +8,11 @@
   python -m protezione_acutis prova-passkey
                                       come sopra, ma con lo smartphone come
                                       lettore d'impronte (passkey)
+  python -m protezione_acutis veracrypt-prepara
+  python -m protezione_acutis veracrypt-keyfile
+  python -m protezione_acutis veracrypt-monta VOLUME LETTERA
+                                      volume VeraCrypt con frase + file chiave
+                                      rilasciato dall'impronta sul telefono
   python -m protezione_acutis cifra FILE / decifra FILE
                                       disponibili solo dopo l'attivazione
 """
@@ -133,6 +138,31 @@ def _prova_passkey() -> int:
     return 0
 
 
+IDENTIFICATIVO_VC = Path.home() / ".protezione-acutis" / "chiave-veracrypt.json"
+
+
+def _veracrypt(argomenti) -> int:
+    from . import veracrypt as vc
+    from .passkey import BiometriaPasskey
+
+    telefono = BiometriaPasskey()
+    if argomenti.comando == "veracrypt-prepara":
+        IDENTIFICATIVO_VC.parent.mkdir(exist_ok=True)
+        print("Conferma con l'impronta sul telefono per registrare la passkey.")
+        vc.prepara(telefono, IDENTIFICATIVO_VC)
+        print(f"Fatto. Identificativo pubblico salvato in {IDENTIFICATIVO_VC}")
+        return 0
+    if argomenti.comando == "veracrypt-keyfile":
+        contenuto = vc.calcola_keyfile(telefono, IDENTIFICATIVO_VC)
+        with vc.keyfile_temporaneo(contenuto) as keyfile:
+            print(f"File chiave temporaneo: {keyfile}")
+            print("Selezionalo in VeraCrypt (Usa file chiave), completa, poi premi Invio qui.")
+            input()
+        print("File chiave distrutto.")
+        return 0
+    return vc.monta(telefono, IDENTIFICATIVO_VC, argomenti.volume, argomenti.lettera)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="protezione_acutis")
     sotto = parser.add_subparsers(dest="comando", required=True)
@@ -140,6 +170,11 @@ def main(argv: list[str] | None = None) -> int:
     sotto.add_parser("prova")
     sotto.add_parser("prova-hello")
     sotto.add_parser("prova-passkey")
+    sotto.add_parser("veracrypt-prepara")
+    sotto.add_parser("veracrypt-keyfile")
+    monta = sotto.add_parser("veracrypt-monta")
+    monta.add_argument("volume")
+    monta.add_argument("lettera")
     for nome in ("cifra", "decifra"):
         sotto.add_parser(nome).add_argument("file", type=Path)
     argomenti = parser.parse_args(argv)
@@ -153,6 +188,12 @@ def main(argv: list[str] | None = None) -> int:
         return _prova_hello()
     if argomenti.comando == "prova-passkey":
         return _prova_passkey()
+    if argomenti.comando.startswith("veracrypt-"):
+        try:
+            return _veracrypt(argomenti)
+        except (BiometriaNegata, FileNotFoundError, FileExistsError) as errore:
+            print(errore, file=sys.stderr)
+            return 4
 
     if not sistema_attivo():
         print(
