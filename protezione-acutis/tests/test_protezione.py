@@ -226,3 +226,35 @@ def test_riga_di_comando(capsys):
     assert "DISATTIVATO" in capsys.readouterr().out
     assert main(["prova"]) == 0
     assert main(["cifra", "qualunque.txt"]) == 2
+
+
+# 6. Nulla esce dal computer -------------------------------------------------
+
+def test_nessuna_connessione_di_rete(monkeypatch, bio):
+    """Cifratura e decifratura funzionano con la rete bloccata: il
+    programma non apre mai connessioni."""
+    import socket
+
+    def vietato(*a, **k):
+        raise AssertionError("tentativo di connessione di rete")
+
+    monkeypatch.setattr(socket.socket, "connect", vietato)
+    monkeypatch.setattr(socket, "create_connection", vietato)
+    monkeypatch.setattr(socket, "getaddrinfo", vietato)
+    contenitore = _cifra(bio)
+    assert decifra(contenitore, FRASE, bio, P) == TESTO
+
+
+def test_windows_hello_fuori_da_windows_rifiuta():
+    import sys
+
+    from protezione_acutis.windows_hello import BiometriaWindowsHello
+
+    if sys.platform == "win32":
+        pytest.skip("su Windows si prova con: python -m protezione_acutis prova-hello")
+    hello = BiometriaWindowsHello()
+    assert hello.simulato is False
+    with pytest.raises(BiometriaNegata):
+        hello.sblocca("hello:protezione-acutis:00")
+    with pytest.raises(BiometriaNegata):
+        hello.sblocca("sim-123")

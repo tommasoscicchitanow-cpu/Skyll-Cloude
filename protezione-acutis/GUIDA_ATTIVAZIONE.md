@@ -16,6 +16,7 @@ Le due chiavi vengono unite (HKDF-SHA256) e il file è cifrato con AES-256-GCM. 
 * **La frase non si recupera.** Nessuno, nemmeno Claude, la conosce o la salva. Se la dimentichi, i file sono persi per sempre. Valuta di scriverla su carta e chiuderla in un luogo sicuro (cassaforte, busta sigillata presso persona di fiducia).
 * **Anche il dispositivo è indispensabile.** Se perdi o cambi il computer o il telefono su cui hai registrato l'impronta, i file non si aprono più. Per questo il passo 4 prevede una seconda chiave di riserva.
 * **Il repository Skyll-Cloude è pubblico.** Va benissimo per il codice, che non contiene segreti, ma **non devi mai caricarci** il materiale riservato, né in chiaro né cifrato, né la frase segreta.
+* **Il materiale non lascia il tuo PC.** Il programma non usa la rete in nessun momento (c'è una prova automatica che lo verifica bloccando tutte le connessioni). I file cifrati e quelli in chiaro restano sul tuo disco.
 * **Scegli una frase lunga**: almeno 5 o 6 parole che non abbiano un legame ovvio tra loro e con il progetto (niente nomi, date, citazioni note). Il programma rifiuta frasi sotto i 20 caratteri.
 
 ## Prova oggi (sistema spento)
@@ -46,16 +47,18 @@ Scegline una nuova, da solo, lontano da schermi e persone. Non scriverla in chat
 
 ### Passo 3. Collega il sensore biometrico del tuo dispositivo
 
-Il prototipo definisce un'interfaccia comune (`FattoreBiometrico` in `protezione_acutis/biometria.py`); manca solo il collegamento al sensore reale, che dipende dal dispositivo che userai. Le opzioni previste sono:
+Il tuo PC è Windows, quindi si usa **Windows Hello** (`protezione_acutis/windows_hello.py`): una chiave custodita nel chip TPM del PC, che firma solo dopo il riconoscimento dell'impronta. Su un altro PC i file non si aprono.
 
-| Dispositivo | Soluzione consigliata |
-|---|---|
-| Mac con Touch ID | Segreto nel portachiavi protetto dalla Secure Enclave, con regola "solo impronta attuale" (se aggiungi una nuova impronta, il segreto si invalida). |
-| PC Windows con lettore d'impronte | Windows Hello con chiave nel TPM. |
-| Telefono Android | Android Keystore con autenticazione biometrica forte richiesta a ogni uso. |
-| Qualsiasi computer | Chiave di sicurezza FIDO2 con lettore d'impronte (per esempio YubiKey Bio), usando l'estensione hmac-secret. È la soluzione più portabile. |
+Serve un lettore d'impronte (integrato o USB) configurato in Impostazioni, Account, Opzioni di accesso. Poi:
 
-Quando sapremo quale dispositivo usi, Claude scriverà questo pezzo e le relative prove sul tuo dispositivo reale. Il collegamento deve avere `simulato = False`.
+```bash
+pip install -r requirements-windows.txt
+python -m protezione_acutis prova-hello
+```
+
+La prova usa il sensore vero ma solo un testo inventato tenuto in memoria: non legge né scrive file, e alla fine cancella la chiave di prova.
+
+Un limite da conoscere: Windows Hello accetta anche il suo PIN al posto dell'impronta, e il programma non può impedirlo. Scegli quindi un PIN Hello lungo e diverso da tutti gli altri. La frase segreta resta comunque obbligatoria in ogni caso.
 
 ### Passo 4. Prepara una chiave di riserva
 
@@ -89,6 +92,12 @@ Nota: su dischi SSD la cancellazione di un file non garantisce che i dati sparis
 ### Passo 7. Distruggi la copia di sicurezza in chiaro
 
 Quando hai verificato che tutto si apre, la copia del passo 1 non serve più: distruggila o tienila tu in un luogo fisicamente sicuro.
+
+## Claude e il materiale riservato
+
+* **Claude non riceve mai la frase.** Quando un file va aperto, la frase la scrivi tu nella finestra del programma sul tuo PC, mai in chat. Allo stesso modo l'impronta la dai tu al sensore.
+* **Claude può lavorare sul materiale solo dopo che tu lo hai sbloccato**, file per file.
+* **Attenzione:** tutto ciò che Claude legge viene elaborato sui server di Anthropic, cioè esce dal PC. Per le parti che non devono uscire in nessun caso (nomi e dati delle fonti) hai due strade: non farle leggere a Claude, oppure toglierle prima con una copia anonimizzata. In alternativa si può usare un modello che gira interamente sul tuo PC, senza internet.
 
 ## Domande frequenti
 
