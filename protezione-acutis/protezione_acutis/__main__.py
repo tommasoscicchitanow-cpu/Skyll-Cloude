@@ -209,7 +209,7 @@ def _archivio(argomenti) -> int:
     """Archivio cifrato interno. La frase si digita qui, sul PC, e non viene
     mostrata né salvata. Con --prova l'archivio può stare anche fuori dalla
     cartella temporanea a sistema spento: usarlo SOLO con file inventati."""
-    import getpass
+    from .frase import leggi_frase
 
     from .archivio import Archivio
 
@@ -218,8 +218,8 @@ def _archivio(argomenti) -> int:
     cartella = Path(argomenti.cartella)
 
     if argomenti.comando == "archivio-crea":
-        frase = getpass.getpass("Nuova frase segreta: ")
-        if getpass.getpass("Ripeti la frase: ") != frase:
+        frase = leggi_frase("Nuova frase segreta: ")
+        if leggi_frase("Ripeti la frase: ") != frase:
             print("Le due frasi non coincidono.", file=sys.stderr)
             return 2
         print(f"Conferma {dove}.")
@@ -227,7 +227,7 @@ def _archivio(argomenti) -> int:
         print(f"Archivio creato in {cartella}")
         return 0
 
-    frase = getpass.getpass("Frase segreta: ")
+    frase = leggi_frase("Frase segreta: ")
     print(f"Conferma {dove}.")
     with Archivio.apri(cartella, frase, fattore, attivo=attivo) as archivio:
         del frase
