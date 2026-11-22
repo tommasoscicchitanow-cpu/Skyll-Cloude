@@ -33,7 +33,7 @@ from reportlab.lib.pagesizes import inch
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, PageBreak,
-    NextPageTemplate, Image as RLImage,
+    Flowable,
 )
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -110,6 +110,7 @@ def parse_markdown(md: str) -> list[tuple[str, str]]:
             blocks.append(("p", " ".join(para).strip()))
             para.clear()
 
+    md = re.sub(r"<!--.*?-->", "", md, flags=re.S)  # drop author notes / HTML comments
     for raw in md.splitlines():
         line = raw.rstrip()
         m = re.match(r"^(#{1,4})\s+(.*)$", line)
@@ -126,9 +127,30 @@ def parse_markdown(md: str) -> list[tuple[str, str]]:
 
 def inline(text: str) -> str:
     """Minimal Markdown inline -> reportlab markup."""
+    # Escape characters that reportlab's mini-HTML parser would choke on (e.g. "R&D", "<3").
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
     text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
     return text
+
+
+class _PageFlag(Flowable):
+    """Zero-size marker: hides the running head (and optionally the folio) on its page.
+
+    Used for front matter (no head, no page number) and chapter openers (no head).
+    """
+
+    def __init__(self, hide_folio: bool = False):
+        super().__init__()
+        self.hide_folio = hide_folio
+
+    def wrap(self, *_):
+        return 0, 0
+
+    def draw(self):
+        doc = self.canv._doctemplate
+        doc._hide_head = True
+        doc._hide_folio = getattr(doc, "_hide_folio", False) or self.hide_folio
 
 
 def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
@@ -137,8 +159,22 @@ def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
     blocks = parse_markdown(md)
     body_chars = sum(len(t) for k, t in blocks if k == "p")
 
-    page_count = estimate_page_count(spec, body_chars)
-    gutter = inside_margin(page_count)
+    # The KDP gutter depends on the final page count, so lay out once with an estimate
+    # and rebuild if the real count lands in a different gutter band.
+    gutter = inside_margin(estimate_page_count(spec, body_chars))
+    for _ in range(3):
+        pages = _layout_text_pdf(blocks, out_path, spec, mode, gutter)
+        if inside_margin(pages) == gutter:
+            break
+        gutter = inside_margin(pages)
+
+    print(f"[interior] wrote {out_path}  ({pages} pages, gutter {gutter}\", "
+          f"trim {spec['trim']})")
+    if pages < 24:
+        print(f"[interior] WARNING: KDP paperbacks need at least 24 pages (this has {pages}).")
+
+
+def _layout_text_pdf(blocks, out_path: str, spec: dict, mode: str, gutter: float) -> int:
     tw, th = parse_trim(spec["trim"])
     page_w, page_h = tw * inch, th * inch
     outer = spec["outer_margin"] * inch
@@ -149,15 +185,26 @@ def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
     # Mirrored frames: recto (odd) gutter on left, verso (even) gutter on right.
     fw = page_w - gutter * inch - outer
     fh_ = page_h - top - bottom
-    recto = Frame(gutter * inch, bottom, fw, fh_, id="recto")
-    verso = Frame(outer, bottom, fw, fh_, id="verso")
+    # One frame whose x is moved per page by parity (odd = recto). reportlab's
+    # autoNextPageTemplate drifts out of step after explicit page breaks, so parity is
+    # computed from the real page number instead of alternating templates.
+    body_frame = Frame(gutter * inch, bottom, fw, fh_, id="body")
+
+    def place_frame(canvas, doc):
+        body_frame._x1 = gutter * inch if doc.page % 2 else outer
+        body_frame._geom()
 
     show_heads = spec.get("running_heads", True)
 
-    def header(canvas, doc, recto_page: bool):
+    def header(canvas, doc):
+        # Runs at page end, so _PageFlag markers drawn on this page are already known.
         canvas.saveState()
         n = doc.page
-        if show_heads and n > 1:
+        recto_page = bool(n % 2)
+        hide_head = getattr(doc, "_hide_head", False)
+        hide_folio = getattr(doc, "_hide_folio", False)
+        doc._hide_head = doc._hide_folio = False
+        if show_heads and not hide_head:
             canvas.setFont(spec["body_font"], spec["body_size"] - 2)
             label = spec["title"] if recto_page else spec["author"]
             y = page_h - top + 6
@@ -165,8 +212,9 @@ def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
                 canvas.drawRightString(page_w - outer, y, label)
             else:
                 canvas.drawString(outer, y, label)
-        canvas.setFont(spec["body_font"], spec["body_size"] - 2)
-        canvas.drawCentredString(page_w / 2, bottom - 18, str(n))
+        if not hide_folio:
+            canvas.setFont(spec["body_font"], spec["body_size"] - 2)
+            canvas.drawCentredString(page_w / 2, bottom - 18, str(n))
         canvas.restoreState()
 
     doc = BaseDocTemplate(
@@ -175,24 +223,23 @@ def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
         title=spec["title"], author=spec["author"],
     )
     doc.addPageTemplates([
-        PageTemplate(id="recto", frames=[recto], onPage=lambda c, d: header(c, d, True)),
-        PageTemplate(id="verso", frames=[verso], onPage=lambda c, d: header(c, d, False)),
+        PageTemplate(id="body", frames=[body_frame], onPage=place_frame, onPageEnd=header),
     ])
 
     story: list = []
     # --- Front matter ---
-    story += [NextPageTemplate("verso"), Spacer(1, page_h * 0.28),
+    story += [_PageFlag(hide_folio=True), Spacer(1, page_h * 0.28),
               Paragraph(inline(spec["title"]), styles["title"])]
     if spec.get("subtitle"):
         story += [Spacer(1, 12), Paragraph(inline(spec["subtitle"]), styles["subtitle"])]
     story += [Spacer(1, 36), Paragraph(spec["author"], styles["subtitle"]), PageBreak()]
-    story += [Spacer(1, page_h * 0.45),
+    story += [_PageFlag(hide_folio=True), Spacer(1, page_h * 0.45),
               Paragraph(spec.get("copyright", f"Copyright © {spec['author']}. All rights reserved."),
                         styles["body_noindent"]), PageBreak()]
 
     # --- Optional auto TOC for non-fiction ---
     if mode == "structured":
-        story += [Paragraph("Contents", styles["h1_chapter"])]
+        story += [_PageFlag(), Paragraph("Contents", styles["h1_chapter"])]
         for kind, text in blocks:
             if kind in ("h2", "h3"):
                 indent = "&nbsp;&nbsp;&nbsp;&nbsp;" if kind == "h3" else ""
@@ -205,7 +252,9 @@ def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
         if kind == "h1":
             continue  # title only; handled in front matter
         if kind == "h2":
-            story += [PageBreak(), Paragraph(inline(text), styles["h1_chapter"])]
+            if not isinstance(story[-1], PageBreak):
+                story.append(PageBreak())
+            story += [_PageFlag(), Paragraph(inline(text), styles["h1_chapter"])]
             first_para_after_head = True
         elif kind == "h3":
             story.append(Paragraph(inline(text), styles["h2"]))
@@ -219,8 +268,7 @@ def build_text_pdf(md_path: str, out_path: str, spec: dict, mode: str) -> None:
             first_para_after_head = False
 
     doc.build(story)
-    print(f"[interior] wrote {out_path}  (~{page_count} pages est., gutter {gutter}\", "
-          f"trim {spec['trim']})")
+    return doc.page
 
 
 def build_image_pdf(images_dir: str, out_path: str, spec: dict) -> None:
