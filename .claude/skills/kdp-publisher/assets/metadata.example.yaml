@@ -1,0 +1,24 @@
+# KDP metadata for kdp_upload.py. See references/metadata-keywords.md.
+title: "The Lighthouse at Dusk"
+subtitle: ""
+author: "A. Writer"
+description: |
+  When the lamp goes dark, the town's oldest secret comes ashore.
+  A slow-burning literary mystery about memory, tides, and the people we leave behind.
+keywords:                    # exactly up to 7 phrases (buyer search language)
+  - "small town mystery"
+  - "literary suspense novel"
+  - "coastal thriller"
+  - "secrets and lies fiction"
+  - "atmospheric mystery"
+  - "book club fiction"
+  - "slow burn mystery"
+categories:                  # the two most SPECIFIC BISAC subjects
+  - "Fiction / Mystery & Detective / Small Town & Rural"
+  - "Fiction / Literary"
+
+# AI-content disclosure (MANDATORY — answer honestly). Omit a key or set false if not AI.
+ai_content:
+  text: true                 # was the prose AI-generated/assisted?
+  images: true               # was the cover AI-generated?
+  translation: false
