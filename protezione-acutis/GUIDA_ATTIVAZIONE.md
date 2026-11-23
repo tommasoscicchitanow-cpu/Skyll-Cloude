@@ -132,6 +132,30 @@ python -m protezione_acutis archivio-rimuovi   --fattore hello CARTELLA NOME
 
 Da spento l'archivio può stare solo nella cartella temporanea. Per la prova sulla partizione vera si aggiunge `--prova`, **solo con una frase di prova e file inventati**. Dopo l'aggiunta i file originali non vengono cancellati: fallo tu, dopo aver verificato che si estraggono correttamente.
 
+### Passare al materiale vero
+
+Fallo solo dopo aver completato la prova con file inventati. In ordine:
+
+1. **Accendi il sistema** creando `configurazione.locale.json` con `{ "attivo": true }` (passo 5 della guida). Senza `--prova`, da qui in poi si usano la chiave Windows Hello definitiva e i parametri di sicurezza pieni.
+2. **Crea l'archivio definitivo**, con la frase vera:
+   `archivio-crea --fattore hello P:\archivio`
+3. **Crea subito la chiave di recupero** e scrivila a mano su carta:
+   `archivio-chiave-recupero --fattore hello P:\archivio`
+   Insieme alla frase sostituisce l'impronta se Windows Hello o il PC si rompono. Non fotografarla e non salvarla in nessun file. Conservala lontano dal PC.
+4. **Copia tutta la cartella** dalla chiavetta (gli originali non vengono toccati):
+   `archivio-importa --fattore hello P:\archivio D:\CARTELLA_DEL_PROGETTO`
+   Se si interrompe, rilancia lo stesso comando: riprende senza ricopiare.
+5. **Verifica byte per byte** contro la chiavetta. Stampa solo numeri, mai nomi di file:
+   `archivio-verifica --fattore hello P:\archivio D:\CARTELLA_DEL_PROGETTO`
+   Deve dire `ESITO: OK`.
+6. **Scollega la chiavetta** e controlla l'archivio da solo:
+   `archivio-integrita --fattore hello P:\archivio`
+   Deve dire `danneggiati: 0`.
+7. **Prova il recupero** prima di formattare la chiavetta: `archivio-recupera --fattore hello P:\archivio` chiede frase e chiave di recupero e ricollega l'impronta. Se funziona, la chiave su carta è giusta.
+8. Solo allora, se vuoi, formatta la chiavetta. È una scelta tua e non si può annullare.
+
+Per lavorare su un file: `archivio-estrai` (uno) o `archivio-estrai-tutto` (tutti); le copie estratte sono in chiaro, cancellale appena finito.
+
 ## Partizione o contenitore VeraCrypt con doppia chiave (alternativa)
 
 Resta disponibile se in futuro preferirai un disco con lettera di unità; richiede di installare VeraCrypt.

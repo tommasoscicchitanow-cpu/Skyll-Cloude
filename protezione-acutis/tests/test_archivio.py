@@ -215,3 +215,154 @@ def test_riga_di_comando_archivio(monkeypatch, tmp_path, capsys):
     assert (tmp_path / "fuori.txt").read_bytes() == b"inventato"
     monkeypatch.setattr(getpass, "getpass", lambda *a: FRASE + "x")
     assert cli.main(["archivio-elenca", cartella]) == 4
+
+
+# -- import di cartelle, verifica, recupero --------------------------------
+
+from protezione_acutis.archivio import formatta_chiave_recupero, leggi_chiave_recupero
+
+
+def _albero_finto(radice: Path) -> Path:
+    (radice / "capitolo-1" / "note").mkdir(parents=True)
+    (radice / "capitolo-1" / "bozza-inventata.txt").write_bytes(b"bozza finta")
+    (radice / "capitolo-1" / "note" / "appunto.txt").write_bytes(b"appunto finto")
+    (radice / "foto-finta.bin").write_bytes(os.urandom(BLOCCO + 7))
+    (radice / "vuoto.txt").write_bytes(b"")
+    return radice
+
+
+def test_importa_cartella_con_percorsi_relativi(cartella, bio, tmp_path):
+    sorgente = _albero_finto(tmp_path / "sorgente")
+    with _crea(cartella, bio) as a:
+        esito = a.importa_cartella(sorgente)
+        assert esito["totale"] == 4 and esito["importati"] == 4 and esito["errori"] == 0
+        nomi = {v["nome"] for v in a.elenca()}
+    assert nomi == {"capitolo-1/bozza-inventata.txt", "capitolo-1/note/appunto.txt",
+                    "foto-finta.bin", "vuoto.txt"}
+    with _apri(cartella, bio) as a:
+        assert a.leggi("capitolo-1/note/appunto.txt") == b"appunto finto"
+    # gli originali non vengono toccati
+    assert (sorgente / "capitolo-1" / "bozza-inventata.txt").read_bytes() == b"bozza finta"
+
+
+def test_importa_riprende_senza_ricopiare(cartella, bio, tmp_path):
+    sorgente = _albero_finto(tmp_path / "sorgente")
+    with _crea(cartella, bio) as a:
+        a.importa_cartella(sorgente)
+        esito = a.importa_cartella(sorgente)
+    assert esito["gia_presenti"] == 4 and esito["importati"] == 0
+    assert len(list((cartella / "dati").iterdir())) == 4
+
+
+def test_verifica_cartella_solo_conteggi(cartella, bio, tmp_path):
+    sorgente = _albero_finto(tmp_path / "sorgente")
+    with _crea(cartella, bio) as a:
+        a.importa_cartella(sorgente)
+        esito = a.verifica_cartella(sorgente)
+        assert esito == {"controllati": 4, "identici": 4, "diversi": 0, "mancanti": 0,
+                         "illeggibili": 0, "solo_in_archivio": 0}
+        assert all(isinstance(v, int) for v in esito.values())
+        (sorgente / "vuoto.txt").write_bytes(b"cambiato")
+        (sorgente / "nuovo.txt").write_bytes(b"nuovo")
+        a.aggiungi_dati("solo-qui.txt", b"x")
+        esito = a.verifica_cartella(sorgente)
+    assert esito["diversi"] == 1 and esito["mancanti"] == 1 and esito["solo_in_archivio"] == 1
+
+
+def test_verifica_integrita_rileva_danni(cartella, bio, tmp_path):
+    sorgente = _albero_finto(tmp_path / "sorgente")
+    with _crea(cartella, bio) as a:
+        a.importa_cartella(sorgente)
+        assert a.verifica_integrita() == {"controllati": 4, "integri": 4, "danneggiati": 0}
+    blocco = max((cartella / "dati").iterdir(), key=lambda p: p.stat().st_size)
+    grezzo = bytearray(blocco.read_bytes())
+    grezzo[100] ^= 1
+    blocco.write_bytes(bytes(grezzo))
+    with _apri(cartella, bio) as a:
+        assert a.verifica_integrita()["danneggiati"] == 1
+
+
+def test_formato_chiave_recupero():
+    grezza = os.urandom(32)
+    testo = formatta_chiave_recupero(grezza)
+    assert len(testo.replace("-", "")) == 56
+    assert leggi_chiave_recupero(testo.lower().replace("-", " ")) == grezza
+    sbagliato = ("A" if testo[0] != "A" else "B") + testo[1:]
+    with pytest.raises(ErroreDecifratura):
+        leggi_chiave_recupero(sbagliato)
+    with pytest.raises(ErroreDecifratura):
+        leggi_chiave_recupero(testo[:-5])
+
+
+def test_recupero_dopo_perdita_impronta(cartella, bio):
+    with _crea(cartella, bio) as a:
+        a.aggiungi_dati("x.txt", b"inventato")
+        chiave = a.crea_chiave_recupero(FRASE)
+    assert chiave.replace("-", "") not in (cartella / "archivio.json").read_text()
+    # il PC si rompe: l'impronta registrata non esiste più
+    bio_perso = bio
+    bio_perso.impronta_valida = False
+    with pytest.raises(BiometriaNegata):
+        _apri(cartella, bio_perso)
+    nuovo = BiometriaSimulata()
+    with Archivio.apri_con_recupero(cartella, FRASE, chiave, P, attivo=False) as a:
+        assert a.leggi("x.txt") == b"inventato"
+        a.riassocia_impronta(FRASE, nuovo)
+    with _apri(cartella, nuovo) as a:
+        assert a.leggi("x.txt") == b"inventato"
+    # la chiave di recupero funziona ancora
+    Archivio.apri_con_recupero(cartella, FRASE, chiave, P, attivo=False).chiudi()
+
+
+def test_recupero_richiede_anche_la_frase(cartella, bio):
+    with _crea(cartella, bio) as a:
+        chiave = a.crea_chiave_recupero(FRASE)
+    with pytest.raises(ErroreDecifratura):
+        Archivio.apri_con_recupero(cartella, FRASE + "x", chiave, P, attivo=False)
+    altra = formatta_chiave_recupero(os.urandom(32))
+    with pytest.raises(ErroreDecifratura):
+        Archivio.apri_con_recupero(cartella, FRASE, altra, P, attivo=False)
+
+
+def test_cambio_frase_invalida_vecchio_recupero(cartella, bio):
+    with _crea(cartella, bio) as a:
+        chiave = a.crea_chiave_recupero(FRASE)
+        a.cambia_frase("una nuova frase inventata abbastanza lunga", bio)
+    with pytest.raises(ErroreFormato):
+        Archivio.apri_con_recupero(cartella, FRASE, chiave, P, attivo=False)
+
+
+def test_senza_chiave_di_recupero(cartella, bio):
+    _crea(cartella, bio).chiudi()
+    with pytest.raises(ErroreFormato):
+        Archivio.apri_con_recupero(cartella, FRASE, formatta_chiave_recupero(os.urandom(32)), P, attivo=False)
+
+
+def test_riga_di_comando_import_verifica_senza_nomi(monkeypatch, tmp_path, capsys):
+    """L'output di importa, verifica e integrità non contiene mai nomi di file."""
+    import getpass
+
+    from protezione_acutis import __main__ as cli
+    import protezione_acutis.archivio as modulo
+
+    bio = BiometriaSimulata()
+    monkeypatch.setattr(cli, "_fattore", lambda *a: (bio, "simulata"))
+    monkeypatch.setattr(getpass, "getpass", lambda *a: FRASE)
+    monkeypatch.setattr(modulo.Archivio.crea.__func__, "__defaults__", (P, None))
+    monkeypatch.setattr(modulo.Archivio.apri.__func__, "__defaults__", (P, None))
+    sorgente = _albero_finto(tmp_path / "sorgente")
+    cartella = str(tmp_path / "ar")
+    assert cli.main(["archivio-crea", cartella]) == 0
+    capsys.readouterr()
+    assert cli.main(["archivio-importa", cartella, str(sorgente)]) == 0
+    assert cli.main(["archivio-verifica", cartella, str(sorgente)]) == 0
+    assert cli.main(["archivio-integrita", cartella]) == 0
+    uscita = capsys.readouterr()
+    testo = uscita.out + uscita.err
+    assert "ESITO: OK" in testo
+    for parola in ("capitolo", "bozza", "appunto", "foto-finta", "vuoto"):
+        assert parola not in testo
+    (sorgente / "vuoto.txt").write_bytes(b"cambiato")
+    assert cli.main(["archivio-verifica", cartella, str(sorgente)]) == 5
+    assert cli.main(["archivio-estrai-tutto", cartella, str(tmp_path / "fuori")]) == 0
+    assert (tmp_path / "fuori" / "capitolo-1" / "note" / "appunto.txt").read_bytes() == b"appunto finto"

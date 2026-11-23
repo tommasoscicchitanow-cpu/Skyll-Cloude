@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -227,9 +228,32 @@ def _archivio(argomenti) -> int:
         print(f"Archivio creato in {cartella}")
         return 0
 
+    if argomenti.comando == "archivio-recupera":
+        frase = leggi_frase("Frase segreta: ")
+        chiave = leggi_frase("Chiave di recupero (anche con spazi o trattini): ")
+        with Archivio.apri_con_recupero(cartella, frase, chiave, attivo=attivo) as archivio:
+            print(f"Chiave di recupero accettata. Ora conferma {dove} per collegare la nuova impronta.")
+            archivio.riassocia_impronta(frase, fattore)
+        print("Fatto: l'archivio ora si apre con la frase e la nuova impronta.")
+        print("La chiave di recupero su carta resta valida.")
+        return 0
+
     frase = leggi_frase("Frase segreta: ")
     print(f"Conferma {dove}.")
     with Archivio.apri(cartella, frase, fattore, attivo=attivo) as archivio:
+        if argomenti.comando == "archivio-chiave-recupero":
+            chiave = archivio.crea_chiave_recupero(frase)
+            print()
+            print("  CHIAVE DI RECUPERO: scrivila a mano su carta, NON fotografarla,")
+            print("  non copiarla nel PC, nel telefono o in chat.")
+            print()
+            print("   ", chiave)
+            print()
+            print("  Con questa chiave + la tua frase si riapre l'archivio anche se")
+            print("  Windows Hello o il PC si rompono. Ogni nuova chiave annulla la precedente.")
+            input("  Quando l'hai trascritta e ricontrollata, premi Invio per cancellare lo schermo.")
+            os.system("cls" if os.name == "nt" else "clear")
+            return 0
         del frase
         if argomenti.comando == "archivio-elenca":
             voci = archivio.elenca()
@@ -240,12 +264,48 @@ def _archivio(argomenti) -> int:
             for origine in argomenti.file:
                 print("Aggiunto:", archivio.aggiungi_file(Path(origine)))
             print("Gli originali NON sono stati cancellati: fallo tu dopo aver verificato.")
+        elif argomenti.comando == "archivio-importa":
+            esito = archivio.importa_cartella(Path(argomenti.sorgente), avanzamento=_avanzamento)
+            print(f"\nFile trovati: {esito['totale']}  copiati ora: {esito['importati']}  "
+                  f"già presenti: {esito['gia_presenti']}  errori di lettura: {esito['errori']}  "
+                  f"dati copiati: {esito['byte'] / 1e9:.2f} GB")
+            print("La cartella originale NON è stata toccata.")
+            if esito["errori"]:
+                print("Ci sono errori: rilancia lo stesso comando, riprende da dove si era fermato.")
+        elif argomenti.comando == "archivio-verifica":
+            esito = archivio.verifica_cartella(Path(argomenti.sorgente), avanzamento=_avanzamento)
+            print(f"\nControllati: {esito['controllati']}  identici: {esito['identici']}  "
+                  f"diversi: {esito['diversi']}  mancanti nell'archivio: {esito['mancanti']}  "
+                  f"illeggibili: {esito['illeggibili']}  solo nell'archivio: {esito['solo_in_archivio']}")
+            ok = esito["identici"] == esito["controllati"]
+            print("ESITO: OK, l'archivio contiene tutto." if ok else "ESITO: DIFFERENZE, non cancellare l'originale.")
+            return 0 if ok else 5
+        elif argomenti.comando == "archivio-integrita":
+            esito = archivio.verifica_integrita(avanzamento=_avanzamento)
+            print(f"\nControllati: {esito['controllati']}  integri: {esito['integri']}  "
+                  f"danneggiati: {esito['danneggiati']}")
+            return 0 if esito["danneggiati"] == 0 else 5
         elif argomenti.comando == "archivio-estrai":
             print("Estratto in:", archivio.estrai(argomenti.nome, Path(argomenti.destinazione)))
+        elif argomenti.comando == "archivio-estrai-tutto":
+            destinazione = Path(argomenti.destinazione)
+            voci = archivio.elenca()
+            for numero, voce in enumerate(voci, 1):
+                bersaglio = destinazione.joinpath(*voce["nome"].split("/"))
+                if destinazione.resolve() not in bersaglio.resolve().parents:
+                    raise ValueError("Percorso non valido nell'archivio.")
+                bersaglio.parent.mkdir(parents=True, exist_ok=True)
+                archivio.estrai(voce["nome"], bersaglio)
+                _avanzamento(numero, len(voci))
+            print(f"\n{len(voci)} file estratti. Sono IN CHIARO: cancellali appena finito.")
         elif argomenti.comando == "archivio-rimuovi":
             archivio.rimuovi(argomenti.nome)
             print("Rimosso:", argomenti.nome)
     return 0
+
+
+def _avanzamento(fatti: int, totale: int) -> None:
+    print(f"\r  {fatti}/{totale}", end="", file=sys.stderr, flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -261,6 +321,12 @@ def main(argv: list[str] | None = None) -> int:
         ("archivio-aggiungi", [("file", {"nargs": "+"})]),
         ("archivio-estrai", [("nome", {}), ("destinazione", {})]),
         ("archivio-rimuovi", [("nome", {})]),
+        ("archivio-importa", [("sorgente", {})]),
+        ("archivio-verifica", [("sorgente", {})]),
+        ("archivio-integrita", []),
+        ("archivio-estrai-tutto", [("destinazione", {})]),
+        ("archivio-chiave-recupero", []),
+        ("archivio-recupera", []),
     ):
         comando_ar = sotto.add_parser(nome)
         comando_ar.add_argument("--fattore", choices=["passkey", "hello"], default="passkey")
