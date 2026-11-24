@@ -33,8 +33,10 @@ class SistemaDisattivato(RuntimeError):
     """Operazione non consentita finché il sistema non è attivato."""
 
 
-def sistema_attivo(percorso_config: Path = CONFIGURAZIONE_PREDEFINITA) -> bool:
+def sistema_attivo(percorso_config: Path | None = None) -> bool:
     """Legge l'interruttore. Se il file manca, il sistema è spento."""
+    if percorso_config is None:
+        percorso_config = CONFIGURAZIONE_PREDEFINITA
     try:
         dati = json.loads(Path(percorso_config).read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -58,7 +60,7 @@ class Cassaforte:
     def __init__(
         self,
         biometria: FattoreBiometrico,
-        percorso_config: Path = CONFIGURAZIONE_PREDEFINITA,
+        percorso_config: Path | None = None,
         parametri: ParametriArgon2 | None = None,
     ):
         self.attivo = sistema_attivo(percorso_config)
