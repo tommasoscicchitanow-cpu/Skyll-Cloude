@@ -162,9 +162,11 @@ Una finestra unica per tutti i progetti protetti, non solo Acutis. Ogni
 progetto è un archivio cifrato con la sua frase e la tua impronta.
 
 **Aprire l'app.** Doppio clic sull'icona "Cassaforte" (lucchetto dorato) sul
-Desktop o nel menu Start. Per averla sulla barra delle applicazioni: apri il
-menu Start, cerca "Cassaforte", clic destro e "Aggiungi alla barra delle
-applicazioni". Windows non permette ai programmi di farlo da soli.
+Desktop. Per averla sulla barra delle applicazioni: clic destro sull'icona
+del Desktop, "Mostra altre opzioni", poi "Aggiungi alla barra delle
+applicazioni" (dallo stesso menu c'è anche "Aggiungi a Start"). Windows non
+permette ai programmi di farlo da soli. Se l'icona manca, si ricrea con
+`python -m protezione_acutis crea-collegamenti`.
 
 **Lavorare su un progetto.**
 
