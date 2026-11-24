@@ -13,9 +13,12 @@ Prototipo di cifratura dei file riservati con **due fattori obbligatori**: impro
 | `protezione_acutis/windows_hello.py` | Impronta tramite Windows Hello (chiave nel TPM del PC) |
 | `protezione_acutis/passkey.py` | Impronta tramite smartphone o chiave FIDO2 (passkey con estensione PRF); i file restano sul PC |
 | `protezione_acutis/archivio.py` | Archivio cifrato interno (consigliato): cartella con nomi casuali, indice cifrato, blocchi AES-256-GCM autenticati, chiave principale avvolta da frase + impronta |
+| `protezione_acutis/lavoro.py` | "Apri per lavorare" e "Chiudi e proteggi": cartella di lavoro unica, reimportazione con verifica SHA-256, sovrascrittura e cancellazione |
+| `protezione_acutis/app.py`, `progetti.py` | App grafica "Cassaforte" per tutti i progetti protetti |
+| `protezione_acutis/icona.py`, `collegamenti.py` | Icona disegnata in Python e collegamenti su Desktop e menu Start |
 | `protezione_acutis/veracrypt.py` | Volume VeraCrypt con frase + file chiave ricalcolato dall'impronta, mai salvato |
 | `protezione_acutis/attivazione.py` | Interruttore: da spento lavora solo in cartelle temporanee e solo con biometria simulata |
-| `protezione_acutis/__main__.py` | Comandi `stato`, `prova`, `cifra`, `decifra` |
+| `protezione_acutis/__main__.py` | Riga di comando (`app`, `lavora-apri`, `lavora-chiudi`, `archivio-*`, `prova`, ...) |
 | `configurazione.json` | Deve restare `"attivo": false`. L'accensione avviene con un file locale escluso da git (vedi guida, passo 5) |
 | `tests/` | Prove automatiche |
 

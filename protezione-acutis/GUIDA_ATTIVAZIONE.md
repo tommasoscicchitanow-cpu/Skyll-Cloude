@@ -156,6 +156,71 @@ Fallo solo dopo aver completato la prova con file inventati. In ordine:
 
 Per lavorare su un file: `archivio-estrai` (uno) o `archivio-estrai-tutto` (tutti); le copie estratte sono in chiaro, cancellale appena finito.
 
+## Lavoro quotidiano: l'app "Cassaforte"
+
+Una finestra unica per tutti i progetti protetti, non solo Acutis. Ogni
+progetto è un archivio cifrato con la sua frase e la tua impronta.
+
+**Aprire l'app.** Doppio clic sull'icona "Cassaforte" (lucchetto dorato) sul
+Desktop o nel menu Start. Per averla sulla barra delle applicazioni: apri il
+menu Start, cerca "Cassaforte", clic destro e "Aggiungi alla barra delle
+applicazioni". Windows non permette ai programmi di farlo da soli.
+
+**Lavorare su un progetto.**
+
+1. Scegli il progetto a sinistra, scrivi la frase segreta (vedi solo
+   asterischi) e premi "Apri per lavorare". Poi appoggia il dito quando
+   Windows Hello lo chiede.
+2. Si apre la cartella di lavoro con tutti i file. Lavora normalmente: puoi
+   modificare, aggiungere e cancellare file e sottocartelle.
+3. Quando hai finito, chiudi Word e gli altri programmi, scrivi la frase e
+   premi "Chiudi e proteggi", poi l'impronta. L'app riporta nell'archivio i
+   file nuovi e modificati, controlla ogni file con SHA-256 rileggendo la
+   copia cifrata, e solo se tutto torna sovrascrive con dati casuali e
+   cancella la cartella di lavoro.
+
+Lo stato è sempre in vista: verde "Protetto", arancione "Aperto per
+lavorare". Se chiudi la finestra con un progetto aperto, l'app te lo ricorda.
+Un secondo "Apri" sullo stesso progetto è bloccato finché non lo chiudi.
+
+**File cancellati.** Se nella cartella di lavoro hai cancellato dei file,
+l'app ti chiede se toglierli anche dall'archivio. Nel dubbio rispondi No:
+restano al sicuro nell'archivio.
+
+**Un file è ancora aperto in un programma.** Il lavoro è già salvato e
+verificato; chiudi il programma e premi di nuovo "Chiudi e proteggi" per
+finire la pulizia.
+
+**Dove sta la cartella di lavoro.** Sul disco esterno, accanto all'archivio
+(per Acutis `P:\lavoro-aperto`, per i progetti nuovi
+`P:\cassaforte\<nome>\lavoro-aperto`), mai sul disco C:. Così la copia in
+chiaro non finisce in OneDrive, nei backup di Windows o nei file recenti di
+altri programmi; la sovrascrittura su un disco meccanico esterno è efficace
+(su un SSD interno no); scollegando il disco non resta nulla sul PC.
+
+**Due accortezze di Windows.** Word salva copie di ripristino automatico su
+C: mentre lavori: in Word, File, Opzioni, Salvataggio, puoi togliere
+"Salva informazioni di salvataggio automatico" per i documenti riservati. In
+Sicurezza di Windows, Protezione da virus e minacce, Gestisci impostazioni,
+conviene disattivare "Invio automatico di campioni", che può spedire file a
+Microsoft per l'analisi.
+
+**Nuovo progetto.** Premi "Nuovo progetto", scegli un nome che non riveli il
+contenuto (l'elenco dei nomi sta in chiaro in `P:\cassaforte\progetti.json`),
+una frase di almeno 20 caratteri e l'impronta. Poi "Apri per lavorare",
+copia i file nella cartella che si apre e "Chiudi e proteggi". Gli originali
+che avevi altrove cancellali tu solo dopo.
+
+**Chiave di recupero.** Il pulsante "Chiave di recupero" ne crea una nuova e
+la mostra sullo schermo da scrivere su carta. Attenzione: annulla quella
+precedente dello stesso progetto. Per Acutis ne hai già una su carta: non
+serve rifarla.
+
+Le stesse operazioni esistono da riga di comando:
+`python -m protezione_acutis lavora-apri --fattore hello P:\archivio-acutis`
+e `lavora-chiudi`. Né l'app né i comandi mostrano o registrano nomi di file:
+solo conteggi.
+
 ## Partizione o contenitore VeraCrypt con doppia chiave (alternativa)
 
 Resta disponibile se in futuro preferirai un disco con lettera di unità; richiede di installare VeraCrypt.

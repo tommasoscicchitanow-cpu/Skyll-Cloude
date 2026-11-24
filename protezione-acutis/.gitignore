@@ -3,3 +3,4 @@ __pycache__/
 *.parziale
 .pytest_cache/
 configurazione.locale.json
+cassaforte.ico

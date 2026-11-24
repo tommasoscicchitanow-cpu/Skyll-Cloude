@@ -19,6 +19,14 @@
   python -m protezione_acutis archivio-rimuovi CARTELLA NOME
                                       archivio cifrato interno (al posto di
                                       VeraCrypt); opzioni --fattore, --prova
+  python -m protezione_acutis lavora-apri|lavora-chiudi [--fattore hello] ARCHIVIO
+                                      apre tutto in una cartella di lavoro e
+                                      poi lo riporta nell'archivio, verifica e
+                                      distrugge la copia in chiaro
+  python -m protezione_acutis app     finestra "Cassaforte" per tutti i progetti
+  python -m protezione_acutis progetti | progetto-collega NOME ARCHIVIO
+  python -m protezione_acutis crea-collegamenti
+                                      icona sul Desktop e nel menu Start
   python -m protezione_acutis cifra FILE / decifra FILE
                                       disponibili solo dopo l'attivazione
 """
@@ -304,6 +312,75 @@ def _archivio(argomenti) -> int:
     return 0
 
 
+def _lavoro(argomenti) -> int:
+    """Apri per lavorare / chiudi e proteggi. Stampa solo conteggi."""
+    from .archivio import Archivio
+    from .frase import leggi_frase
+    from .lavoro import (apri_lavoro, cartella_lavoro_predefinita, chiudi_lavoro,
+                         conta_cancellati, lavoro_aperto)
+
+    fattore, dove = _fattore(argomenti.fattore, argomenti.prova, "protezione-acutis-archivio")
+    attivo = True if argomenti.prova else None
+    cartella = Path(argomenti.cartella)
+    lavoro = Path(argomenti.lavoro) if argomenti.lavoro else cartella_lavoro_predefinita(cartella)
+    apri = argomenti.comando == "lavora-apri"
+    if apri and lavoro.exists():
+        print("C'è già una cartella di lavoro aperta: chiudila prima con 'lavora-chiudi'.",
+              file=sys.stderr)
+        return 4
+    if not apri and not lavoro_aperto(lavoro):
+        print("Non c'è una cartella di lavoro aperta da chiudere.", file=sys.stderr)
+        return 4
+    frase = leggi_frase("Frase segreta: ")
+    print(f"Conferma {dove}.")
+    with Archivio.apri(cartella, frase, fattore, attivo=attivo) as archivio:
+        del frase
+        if apri:
+            esito = apri_lavoro(archivio, lavoro, avanzamento=_avanzamento)
+            print(f"\n{esito['estratti']} file aperti in: {lavoro}")
+            print("Sono IN CHIARO: quando hai finito usa 'Chiudi e proteggi'.")
+            if os.name == "nt":
+                os.startfile(str(lavoro))  # noqa: S606
+            return 0
+        rimuovi = False
+        cancellati = conta_cancellati(archivio, lavoro)
+        if cancellati:
+            risposta = input(f"{cancellati} file dell'archivio non ci sono più nella cartella "
+                             "di lavoro. Toglierli anche dall'archivio? [s/N] ")
+            rimuovi = risposta.strip().lower() in ("s", "si", "sì")
+        e = chiudi_lavoro(archivio, lavoro, rimuovi_cancellati=rimuovi, avanzamento=_avanzamento)
+    print(f"\nNuovi: {e['nuovi']}  modificati: {e['modificati']}  invariati: {e['invariati']}  "
+          f"cancellati: {e['cancellati']} (tolti dall'archivio: {e['cancellati_rimossi']})  "
+          f"ignorati (file temporanei): {e['ignorati']}")
+    print(f"Verificati con SHA-256: {e['verificati']}  verifica fallita: {e['verifica_fallita']}  "
+          f"errori di lettura: {e['errori']}")
+    if e["errori"] or e["verifica_fallita"]:
+        print("ATTENZIONE: la cartella di lavoro NON è stata cancellata. Riprova.")
+        return 5
+    if e["non_cancellabili"]:
+        print(f"Il lavoro è salvato, ma {e['non_cancellabili']} file sono aperti in un altro "
+              "programma: chiudilo e rilancia 'Chiudi e proteggi'.")
+        return 5
+    print("Cartella di lavoro sovrascritta e cancellata. Tutto protetto.")
+    return 0
+
+
+def _progetti(argomenti) -> int:
+    from .progetti import Registro
+
+    registro = Registro.carica(argomenti.radice)
+    if argomenti.comando == "progetto-collega":
+        p = registro.collega(argomenti.nome, Path(argomenti.archivio),
+                             Path(argomenti.lavoro) if argomenti.lavoro else None,
+                             fattore=argomenti.fattore)
+        print(f"Collegato: {p.nome}  (cartella di lavoro: {p.lavoro})")
+        return 0
+    for p in registro.progetti:
+        print(f"{p.nome:<30} {p.stato()}")
+    print(f"{len(registro.progetti)} progetti in {registro.percorso}")
+    return 0
+
+
 def _avanzamento(fatti: int, totale: int) -> None:
     print(f"\r  {fatti}/{totale}", end="", file=sys.stderr, flush=True)
 
@@ -341,9 +418,52 @@ def main(argv: list[str] | None = None) -> int:
         if nome == "veracrypt-monta":
             comando_vc.add_argument("volume")
             comando_vc.add_argument("lettera")
+    for nome in ("lavora-apri", "lavora-chiudi"):
+        comando_lv = sotto.add_parser(nome)
+        comando_lv.add_argument("--fattore", choices=["passkey", "hello"], default="passkey")
+        comando_lv.add_argument("--prova", action="store_true")
+        comando_lv.add_argument("--lavoro", help="cartella di lavoro (predefinita: accanto all'archivio)")
+        comando_lv.add_argument("cartella")
+    sotto.add_parser("app").add_argument("--radice")
+    sotto.add_parser("progetti").add_argument("--radice")
+    collega = sotto.add_parser("progetto-collega")
+    collega.add_argument("--radice")
+    collega.add_argument("--lavoro")
+    collega.add_argument("--fattore", choices=["passkey", "hello"], default="hello")
+    collega.add_argument("nome")
+    collega.add_argument("archivio")
+    sotto.add_parser("crea-collegamenti")
     for nome in ("cifra", "decifra"):
         sotto.add_parser(nome).add_argument("file", type=Path)
     argomenti = parser.parse_args(argv)
+
+    if argomenti.comando == "app":
+        from .app import avvia
+
+        return avvia(Path(argomenti.radice) if argomenti.radice else None)
+    if argomenti.comando == "crea-collegamenti":
+        from .collegamenti import crea_collegamenti
+
+        print(crea_collegamenti())
+        return 0
+    if argomenti.comando in ("progetti", "progetto-collega"):
+        from .progetti import ErroreProgetto
+
+        try:
+            return _progetti(argomenti)
+        except ErroreProgetto as errore:
+            print(errore, file=sys.stderr)
+            return 4
+    if argomenti.comando.startswith("lavora-"):
+        from .cripto import ErroreFormato, FraseDebole
+        from .lavoro import LavoroGiaAperto, NessunLavoroAperto
+
+        try:
+            return _lavoro(argomenti)
+        except (BiometriaNegata, ErroreDecifratura, ErroreFormato, FraseDebole,
+                SistemaDisattivato, LavoroGiaAperto, NessunLavoroAperto) as errore:
+            print(errore, file=sys.stderr)
+            return 4
 
     if argomenti.comando == "stato":
         print("ATTIVO" if sistema_attivo() else "DISATTIVATO (solo prove)")
