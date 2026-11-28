@@ -1,0 +1,6 @@
+__pycache__/
+*.acutis
+*.parziale
+.pytest_cache/
+configurazione.locale.json
+cassaforte.ico

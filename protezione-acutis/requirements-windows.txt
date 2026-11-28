@@ -1,0 +1,5 @@
+-r requirements.txt
+winrt-runtime>=2.0
+winrt-Windows.Security.Credentials>=2.0
+winrt-Windows.Security.Cryptography>=2.0
+winrt-Windows.Foundation>=2.0
