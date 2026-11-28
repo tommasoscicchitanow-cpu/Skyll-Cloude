@@ -30,7 +30,15 @@ from .lavoro import (
     chiudi_lavoro,
     conta_cancellati,
 )
+from .barra import BarraNulla, crea_barra
 from .progetti import ErroreProgetto, Progetto, Registro
+
+# Ogni quanto ricordare, con una finestrella in primo piano, che la cassaforte
+# è ancora aperta (secondi).
+PROMEMORIA_OGNI = 30 * 60
+LAMPEGGIO_MS = 900
+AVVISO_PERICOLO = ("\u26a0  CASSAFORTE APERTA: finché resta aperta c'è rischio di fuga di "
+                   "notizie. Chiudi e proteggi appena hai finito.")
 
 TITOLO = "Cassaforte"
 
@@ -103,10 +111,15 @@ class AppCassaforte:
         self._risposta: dict = {}
 
         self.finestra = finestra or tk.Tk()
+        self._attese: dict = {}
+        self.barra_win = BarraNulla()
+        self._aperta_da: float | None = None
+        self._fase = False
         self._costruisci()
         self.aggiorna_elenco()
-        self._attese = {"ascolta": self.finestra.after(100, self._ascolta),
-                        "ricontrolla": self.finestra.after(3000, self._ricontrolla)}
+        self._attese.update({"ascolta": self.finestra.after(100, self._ascolta),
+                             "ricontrolla": self.finestra.after(3000, self._ricontrolla),
+                             "barra": self.finestra.after(600, self._collega_barra)})
 
     # -- interfacce sostituibili nelle prove -------------------------------
     def avvisa(self, titolo: str, testo: str, tipo: str = "info") -> None:
@@ -128,8 +141,8 @@ class AppCassaforte:
         f = self.finestra
         f.title(TITOLO)
         f.configure(bg=CARTA)
-        f.minsize(760, 460)
-        f.geometry("880x520")
+        f.minsize(780, 560)
+        f.geometry("900x590")
         self._icone = self._prepara_icone()
         self._icona_attuale = None
         f.protocol("WM_DELETE_WINDOW", self.chiudi_finestra)
@@ -150,6 +163,9 @@ class AppCassaforte:
 
         testata = tk.Frame(f, bg=BLU, height=64)
         testata.pack(fill="x")
+        # fascia di pericolo, visibile solo quando qualcosa è aperto
+        self.fascia = tk.Label(f, text=AVVISO_PERICOLO, bg="#D32027", fg="white",
+                               font=(famiglia, 11, "bold"), pady=6, wraplength=840)
         tk.Label(testata, text=TITOLO,
                  bg=BLU, fg=ORO, font=(famiglia, 18, "bold")).pack(side="left", padx=18, pady=12)
         tk.Label(testata, text="Progetti protetti da frase segreta e impronta", bg=BLU,
@@ -259,15 +275,140 @@ class AppCassaforte:
         """"aperta" se almeno un progetto è aperto, altrimenti "chiusa"."""
         return "aperta" if any(p.stato() == "aperto" for p in self.registro.progetti) else "chiusa"
 
+    def _collega_barra(self) -> None:
+        self.barra_win = crea_barra(self.finestra, Path(__file__).resolve().parent.parent)
+        self._icona_attuale = None
+        self._aggiorna_icona()
+
     def _aggiorna_icona(self) -> None:
+        """Segnala lo stato generale: icona della finestra, piccolo lucchetto
+        sul pulsante della barra, fascia rossa e lampeggio finché è aperta."""
         stato = self.stato_generale()
         if stato == self._icona_attuale:
             return
         self._icona_attuale = stato
-        aperti = sum(1 for p in self.registro.progetti if p.stato() == "aperto")
-        self.finestra.title(f"{TITOLO} (aperta: {aperti})" if aperti else f"{TITOLO} (tutto chiuso)")
         if self._icone:
             self.finestra.iconphoto(True, *self._icone[stato == "aperta"])
+        if stato == "aperta":
+            import time
+
+            self._aperta_da = time.monotonic()
+            self._ultimo_promemoria = self._aperta_da
+            self.barra_win.sovrapponi("aperta", "Cassaforte aperta: rischio fuga di notizie")
+            self.fascia.pack(fill="x", after=self.fascia.master.winfo_children()[0])
+            self._mostra_striscia()
+            self._lampeggia()
+        else:
+            self._aperta_da = None
+            attesa = self._attese.pop("lampeggio", None)
+            if attesa:
+                self.finestra.after_cancel(attesa)
+            self.barra_win.rosso(False)
+            self.barra_win.sovrapponi("verde", "Cassaforte: tutto chiuso e protetto")
+            self.fascia.pack_forget()
+            if getattr(self, "striscia", None) is not None:
+                self.striscia.withdraw()
+            self.finestra.title(f"{TITOLO} (tutto chiuso)")
+
+    def _lampeggia(self) -> None:
+        """Animazione di pericolo: costa una chiamata al secondo circa."""
+        if self._aperta_da is None:
+            return
+        import time
+
+        self._fase = not self._fase
+        aperti = sum(1 for p in self.registro.progetti if p.stato() == "aperto") or 1
+        self.barra_win.rosso(self._fase)
+        colore = "#D32027" if self._fase else "#8E0F14"
+        self.fascia.config(bg=colore)
+        if getattr(self, "striscia", None) is not None:
+            self.striscia.config(bg=colore)
+            for figlio in self.striscia.winfo_children():
+                figlio.config(bg=colore)
+            self.striscia.lift()
+        self.finestra.title(
+            f"\u26a0 CASSAFORTE APERTA ({aperti})" if self._fase else "\u26a0 Rischio fuga di notizie")
+        adesso = time.monotonic()
+        if adesso - self._ultimo_promemoria >= PROMEMORIA_OGNI:
+            self._ultimo_promemoria = adesso
+            self._promemoria(int((adesso - self._aperta_da) // 60))
+        self._attese["lampeggio"] = self.finestra.after(LAMPEGGIO_MS, self._lampeggia)
+
+    def _area_di_lavoro(self) -> tuple[int, int, int, int]:
+        """Schermo senza la barra delle applicazioni: (sinistra, alto, destra, basso)."""
+        if os.name == "nt":
+            try:
+                import ctypes
+                from ctypes import wintypes
+
+                r = wintypes.RECT()
+                if ctypes.windll.user32.SystemParametersInfoW(0x30, 0, ctypes.byref(r), 0):
+                    return r.left, r.top, r.right, r.bottom
+            except Exception:  # noqa: BLE001
+                pass
+        return 0, 0, self.finestra.winfo_screenwidth(), self.finestra.winfo_screenheight() - 48
+
+    def _mostra_striscia(self) -> None:
+        """Striscia rossa sempre in primo piano appoggiata sopra la barra delle
+        applicazioni, in basso a destra: si vede anche con l'app ridotta a
+        icona o sotto altre finestre. Un clic riporta alla Cassaforte."""
+        if getattr(self, "striscia", None) is None:
+            s = tk.Toplevel(self.finestra, bg="#D32027", cursor="hand2")
+            s.overrideredirect(True)
+            s.attributes("-topmost", True)
+            tk.Label(s, text="\u26a0  CASSAFORTE APERTA", bg="#D32027", fg="white",
+                     font=(self.font[0], 13, "bold")).pack(padx=16, pady=(6, 0), anchor="w")
+            tk.Label(s, text="Rischio fuga di notizie. Clic qui per chiudere e proteggere.",
+                     bg="#D32027", fg="white", font=(self.font[0], 9)).pack(
+                         padx=16, pady=(0, 7), anchor="w")
+            for w in (s, *s.winfo_children()):
+                w.bind("<Button-1>", lambda e: self._torna_alla_finestra())
+            self.striscia = s
+        s = self.striscia
+        s.deiconify()
+        s.update_idletasks()
+        _, _, destra, basso = self._area_di_lavoro()
+        larghezza, altezza = max(s.winfo_reqwidth(), 420), s.winfo_reqheight()
+        s.geometry(f"{larghezza}x{altezza}+{destra - larghezza - 12}+{basso - altezza - 8}")
+        s.lift()
+
+    def _torna_alla_finestra(self) -> None:
+        self.finestra.deiconify()
+        self.finestra.lift()
+        aperti = self.registro.aperti()
+        if aperti:
+            self.seleziona(aperti[0].nome)
+        self.campo_frase.focus_force()
+
+    def _promemoria(self, minuti: int) -> None:
+        """Finestrella in primo piano: la cassaforte è aperta da tanto."""
+        vecchia = getattr(self, "finestra_promemoria", None)
+        if vecchia is not None and vecchia.winfo_exists():
+            vecchia.destroy()
+        w = tk.Toplevel(self.finestra, bg="#D32027")
+        w.title("Cassaforte aperta")
+        w.attributes("-topmost", True)
+        tk.Label(w, text=f"\u26a0  La cassaforte è aperta da {minuti} minuti.", bg="#D32027",
+                 fg="white", font=(self.font[0], 13, "bold")).pack(padx=24, pady=(18, 6))
+        tk.Label(w, text="Finché resta aperta i file sono in chiaro: c'è rischio di fuga di "
+                 "notizie.", bg="#D32027", fg="white", wraplength=380).pack(padx=24)
+        riga = tk.Frame(w, bg="#D32027")
+        riga.pack(pady=16)
+
+        def chiudi_ora():
+            w.destroy()
+            self._torna_alla_finestra()
+
+        ttk.Button(riga, text="Chiudi e proteggi ora", command=chiudi_ora).pack(side="left")
+        ttk.Button(riga, text="Più tardi", command=w.destroy).pack(side="left", padx=8)
+        if os.name == "nt":
+            try:
+                import ctypes
+
+                ctypes.windll.user32.FlashWindow(int(self.finestra.wm_frame(), 16), True)
+            except Exception:  # noqa: BLE001
+                pass
+        self.finestra_promemoria = w
 
     def aggiorna_elenco(self) -> None:
         scelto = self.elenco.selection()

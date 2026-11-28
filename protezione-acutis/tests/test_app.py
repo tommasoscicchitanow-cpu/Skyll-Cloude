@@ -153,7 +153,17 @@ def test_nome_non_valido(app):
     assert app.avvisi[-1][0] == "errore"
 
 
-def test_icona_e_titolo_segnalano_lo_stato(app):
+def test_icona_e_avviso_di_pericolo(app):
+    segnali = []
+
+    class BarraFinta:
+        def sovrapponi(self, nome, descrizione=""):
+            segnali.append(("icona", nome))
+
+        def rosso(self, acceso):
+            segnali.append(("rosso", acceso))
+
+    app.barra_win = BarraFinta()
     assert app.stato_generale() == "chiusa"
     app.crea_progetto("Idea", FRASE, "hello")
     _attendi(app)
@@ -161,10 +171,21 @@ def test_icona_e_titolo_segnalano_lo_stato(app):
     app.campo_frase.insert(0, FRASE)
     app.azione_apri()
     _attendi(app)
-    assert app.stato_generale() == "aperta"
-    assert app.finestra.title() == "Cassaforte (aperta: 1)"
-    assert app._icona_attuale == "aperta"
+    assert app.stato_generale() == "aperta" and ("icona", "aperta") in segnali
+    assert app.fascia.winfo_manager() == "pack"
+    assert "fuga di notizie" in app.fascia.cget("text")
+    assert app.striscia.winfo_ismapped() or app.striscia.state() == "normal"
+    assert "CASSAFORTE APERTA" in app.finestra.title() or "fuga" in app.finestra.title()
+    # il promemoria arriva quando è passato il tempo
+    app._ultimo_promemoria -= 10_000
+    app._lampeggia()
+    assert app.finestra_promemoria.winfo_exists()
+    app.finestra_promemoria.destroy()
     app.campo_frase.insert(0, FRASE)
     app.azione_chiudi()
     _attendi(app)
-    assert app._icona_attuale == "chiusa" and app.finestra.title() == "Cassaforte (tutto chiuso)"
+    assert segnali[-1] == ("icona", "verde") and ("rosso", False) in segnali
+    assert app.finestra.title() == "Cassaforte (tutto chiuso)"
+    assert app.fascia.winfo_manager() == ""
+    assert app.striscia.state() == "withdrawn"
+    assert "lampeggio" not in app._attese

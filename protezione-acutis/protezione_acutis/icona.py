@@ -19,15 +19,22 @@ def _rettangolo_arrotondato(x, y, x0, y0, x1, y1, r):
     return x0 <= x <= x1 and y0 <= y <= y1 and (x - cx) ** 2 + (y - cy) ** 2 <= r * r
 
 
-ARANCIO = (194, 94, 0)
+ROSSO = (211, 32, 39)
+VERDE = (34, 139, 34)
 BIANCO = (255, 250, 240)
+# variante -> (fondo, metallo, arco aperto)
+VARIANTI = {
+    "chiusa": (FONDO, ORO, False),   # icona normale: tutto protetto
+    "aperta": (ROSSO, BIANCO, True),  # almeno un progetto aperto
+    "verde": (VERDE, BIANCO, False),  # piccolo segnale "tutto chiuso"
+}
 
 
-def _colore(x: float, y: float, aperta: bool = False):
+def _colore(x: float, y: float, aperta: bool = False, variante: str | None = None):
     """Coordinate 0..1. Restituisce (r, g, b) o None (trasparente).
     Chiusa: lucchetto dorato su blu notte. Aperta: lucchetto bianco con
     l'arco sollevato su fondo arancione, ben distinguibile anche in piccolo."""
-    fondo, metallo = (ARANCIO, BIANCO) if aperta else (FONDO, ORO)
+    fondo, metallo, aperta = VARIANTI[variante or ("aperta" if aperta else "chiusa")]
     if not _rettangolo_arrotondato(x, y, 0.02, 0.02, 0.98, 0.98, 0.2):
         return None
     # buco della serratura
@@ -48,7 +55,7 @@ def _colore(x: float, y: float, aperta: bool = False):
     return fondo
 
 
-def pixel(lato: int, aperta: bool = False) -> bytes:
+def pixel(lato: int, aperta: bool = False, variante: str | None = None) -> bytes:
     righe = bytearray()
     for py in range(lato):
         righe.append(0)  # filtro PNG "nessuno"
@@ -57,7 +64,7 @@ def pixel(lato: int, aperta: bool = False) -> bytes:
             for sy in range(CAMPIONI):
                 for sx in range(CAMPIONI):
                     c = _colore((px + (sx + 0.5) / CAMPIONI) / lato,
-                                (py + (sy + 0.5) / CAMPIONI) / lato, aperta)
+                                (py + (sy + 0.5) / CAMPIONI) / lato, aperta, variante)
                     if c:
                         somma[0] += c[0]
                         somma[1] += c[1]
@@ -72,18 +79,18 @@ def pixel(lato: int, aperta: bool = False) -> bytes:
     return bytes(righe)
 
 
-def png(lato: int, aperta: bool = False) -> bytes:
+def png(lato: int, aperta: bool = False, variante: str | None = None) -> bytes:
     def blocco(tipo: bytes, dati: bytes) -> bytes:
         return struct.pack(">I", len(dati)) + tipo + dati + struct.pack(">I", zlib.crc32(tipo + dati))
 
     return (b"\x89PNG\r\n\x1a\n"
             + blocco(b"IHDR", struct.pack(">IIBBBBB", lato, lato, 8, 6, 0, 0, 0))
-            + blocco(b"IDAT", zlib.compress(pixel(lato, aperta), 9))
+            + blocco(b"IDAT", zlib.compress(pixel(lato, aperta, variante), 9))
             + blocco(b"IEND", b""))
 
 
-def ico(lati=(16, 24, 32, 48, 64, 256)) -> bytes:
-    immagini = [png(l) for l in lati]
+def ico(lati=(16, 24, 32, 48, 64, 256), variante: str = "chiusa") -> bytes:
+    immagini = [png(l, variante=variante) for l in lati]
     testa = struct.pack("<HHH", 0, 1, len(lati))
     posizione = 6 + 16 * len(lati)
     voci = b""

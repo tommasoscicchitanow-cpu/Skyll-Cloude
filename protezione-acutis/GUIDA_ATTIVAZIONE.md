@@ -182,12 +182,21 @@ permette ai programmi di farlo da soli. Se l'icona manca, si ricrea con
    cancella la cartella di lavoro.
 
 Lo stato è sempre in vista: verde "Protetto", arancione "Aperto per
-lavorare". Anche l'icona sulla barra delle applicazioni lo segnala mentre
-l'app è aperta (pure ridotta a icona): lucchetto dorato su blu se è tutto
-chiuso, lucchetto aperto su arancione se almeno un progetto è aperto; il
-titolo della finestra dice quanti. Il controllo è leggerissimo: ogni 3
-secondi l'app guarda solo se esistono le cartelle di lavoro, senza leggere
-file. Ad app chiusa l'icona fissata resta quella fissa di Windows. Se chiudi la finestra con un progetto aperto, l'app te lo ricorda.
+lavorare". Finché l'app è in funzione (anche ridotta a icona) lo
+stato si vede anche fuori dalla finestra:
+
+* tutto chiuso: piccolo lucchetto verde sull'angolo dell'icona nella barra
+  delle applicazioni;
+* almeno un progetto aperto: lucchetto rosso sull'icona, pulsante della barra
+  che lampeggia di rosso, striscia rossa "CASSAFORTE APERTA, rischio fuga di
+  notizie" sempre in primo piano appena sopra la barra (un clic riporta alla
+  finestra), fascia rossa nella finestra e, ogni 30 minuti, un promemoria in
+  primo piano.
+
+Costa pochissimo al PC: un controllo ogni 3 secondi sull'esistenza delle
+cartelle di lavoro (senza leggere file) e un cambio di colore al secondo
+solo mentre è aperta. Ad app chiusa Windows mostra l'icona fissa: per questo,
+se chiudi la finestra con un progetto aperto, l'app ti avvisa. Se chiudi la finestra con un progetto aperto, l'app te lo ricorda.
 Un secondo "Apri" sullo stesso progetto è bloccato finché non lo chiudi.
 
 **File cancellati.** Se nella cartella di lavoro hai cancellato dei file,
