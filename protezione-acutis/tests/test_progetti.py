@@ -61,6 +61,7 @@ def test_icona_valida():
     riservato, tipo, quante = struct.unpack("<HHH", dati[:6])
     assert (riservato, tipo, quante) == (0, 1, 2)
     assert png(16).startswith(b"\x89PNG")
+    assert png(16, aperta=True) != png(16)
 
 
 def test_script_collegamenti():

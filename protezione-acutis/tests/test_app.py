@@ -151,3 +151,20 @@ def test_nome_non_valido(app):
     app.crea_progetto("a/b", FRASE, "hello")
     _attendi(app)
     assert app.avvisi[-1][0] == "errore"
+
+
+def test_icona_e_titolo_segnalano_lo_stato(app):
+    assert app.stato_generale() == "chiusa"
+    app.crea_progetto("Idea", FRASE, "hello")
+    _attendi(app)
+    assert app.finestra.title() == "Cassaforte (tutto chiuso)"
+    app.campo_frase.insert(0, FRASE)
+    app.azione_apri()
+    _attendi(app)
+    assert app.stato_generale() == "aperta"
+    assert app.finestra.title() == "Cassaforte (aperta: 1)"
+    assert app._icona_attuale == "aperta"
+    app.campo_frase.insert(0, FRASE)
+    app.azione_chiudi()
+    _attendi(app)
+    assert app._icona_attuale == "chiusa" and app.finestra.title() == "Cassaforte (tutto chiuso)"

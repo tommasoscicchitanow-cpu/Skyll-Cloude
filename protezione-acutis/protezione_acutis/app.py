@@ -130,12 +130,8 @@ class AppCassaforte:
         f.configure(bg=CARTA)
         f.minsize(760, 460)
         f.geometry("880x520")
-        icona = Path(__file__).resolve().parent.parent / "cassaforte.ico"
-        if os.name == "nt" and icona.exists():
-            try:
-                f.iconbitmap(default=str(icona))
-            except tk.TclError:
-                pass
+        self._icone = self._prepara_icone()
+        self._icona_attuale = None
         f.protocol("WM_DELETE_WINDOW", self.chiudi_finestra)
 
         famiglia = "Segoe UI" if os.name == "nt" else "DejaVu Sans"
@@ -241,6 +237,38 @@ class AppCassaforte:
         self.elenco.focus(nome)
         self._mostra_dettaglio()
 
+    def _prepara_icone(self) -> dict:
+        """Icone della barra delle applicazioni: lucchetto chiuso (tutto
+        protetto) o aperto (almeno un progetto aperto). Si disegnano una
+        volta sola all'avvio."""
+        import base64
+
+        from .icona import png
+
+        icone = {}
+        for aperta in (False, True):
+            try:
+                icone[aperta] = [tk.PhotoImage(master=self.finestra,
+                                               data=base64.b64encode(png(lato, aperta)))
+                                 for lato in (48, 32, 16)]
+            except tk.TclError:
+                return {}
+        return icone
+
+    def stato_generale(self) -> str:
+        """"aperta" se almeno un progetto è aperto, altrimenti "chiusa"."""
+        return "aperta" if any(p.stato() == "aperto" for p in self.registro.progetti) else "chiusa"
+
+    def _aggiorna_icona(self) -> None:
+        stato = self.stato_generale()
+        if stato == self._icona_attuale:
+            return
+        self._icona_attuale = stato
+        aperti = sum(1 for p in self.registro.progetti if p.stato() == "aperto")
+        self.finestra.title(f"{TITOLO} (aperta: {aperti})" if aperti else f"{TITOLO} (tutto chiuso)")
+        if self._icone:
+            self.finestra.iconphoto(True, *self._icone[stato == "aperta"])
+
     def aggiorna_elenco(self) -> None:
         scelto = self.elenco.selection()
         self.elenco.delete(*self.elenco.get_children())
@@ -253,6 +281,7 @@ class AppCassaforte:
         elif self.registro.progetti:
             self.elenco.selection_set(self.registro.progetti[0].nome)
         self._mostra_dettaglio()
+        self._aggiorna_icona()
 
     def _mostra_dettaglio(self) -> None:
         p = self.progetto_scelto()

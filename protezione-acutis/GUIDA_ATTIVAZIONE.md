@@ -182,7 +182,12 @@ permette ai programmi di farlo da soli. Se l'icona manca, si ricrea con
    cancella la cartella di lavoro.
 
 Lo stato è sempre in vista: verde "Protetto", arancione "Aperto per
-lavorare". Se chiudi la finestra con un progetto aperto, l'app te lo ricorda.
+lavorare". Anche l'icona sulla barra delle applicazioni lo segnala mentre
+l'app è aperta (pure ridotta a icona): lucchetto dorato su blu se è tutto
+chiuso, lucchetto aperto su arancione se almeno un progetto è aperto; il
+titolo della finestra dice quanti. Il controllo è leggerissimo: ogni 3
+secondi l'app guarda solo se esistono le cartelle di lavoro, senza leggere
+file. Ad app chiusa l'icona fissata resta quella fissa di Windows. Se chiudi la finestra con un progetto aperto, l'app te lo ricorda.
 Un secondo "Apri" sullo stesso progetto è bloccato finché non lo chiudi.
 
 **File cancellati.** Se nella cartella di lavoro hai cancellato dei file,

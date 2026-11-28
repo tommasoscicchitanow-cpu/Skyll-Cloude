@@ -19,26 +19,36 @@ def _rettangolo_arrotondato(x, y, x0, y0, x1, y1, r):
     return x0 <= x <= x1 and y0 <= y <= y1 and (x - cx) ** 2 + (y - cy) ** 2 <= r * r
 
 
-def _colore(x: float, y: float):
-    """Coordinate 0..1. Restituisce (r, g, b, a) o None."""
+ARANCIO = (194, 94, 0)
+BIANCO = (255, 250, 240)
+
+
+def _colore(x: float, y: float, aperta: bool = False):
+    """Coordinate 0..1. Restituisce (r, g, b) o None (trasparente).
+    Chiusa: lucchetto dorato su blu notte. Aperta: lucchetto bianco con
+    l'arco sollevato su fondo arancione, ben distinguibile anche in piccolo."""
+    fondo, metallo = (ARANCIO, BIANCO) if aperta else (FONDO, ORO)
     if not _rettangolo_arrotondato(x, y, 0.02, 0.02, 0.98, 0.98, 0.2):
         return None
     # buco della serratura
     if (x - 0.5) ** 2 + (y - 0.64) ** 2 <= 0.065 ** 2 or (0.475 <= x <= 0.525 and 0.64 <= y <= 0.78):
-        return FONDO
+        return fondo
     # corpo
     if _rettangolo_arrotondato(x, y, 0.22, 0.46, 0.78, 0.88, 0.07):
-        return ORO
-    # arco: anello tra raggio 0.15 e 0.23 centrato in (0.5, 0.40), metà alta
-    d = math.hypot(x - 0.5, y - 0.40)
-    if 0.15 <= d <= 0.23 and y <= 0.40:
-        return ORO
-    if y > 0.40 and y <= 0.48 and 0.15 <= abs(x - 0.5) <= 0.23:
-        return ORO
-    return FONDO
+        return metallo
+    # arco: anello tra raggio 0.15 e 0.23; da aperta è sollevato e la gamba
+    # destra non entra nel corpo
+    centro = 0.27 if aperta else 0.40
+    d = math.hypot(x - 0.5, y - centro)
+    if 0.15 <= d <= 0.23 and y <= centro:
+        return metallo
+    if 0.15 <= abs(x - 0.5) <= 0.23 and centro < y <= 0.48:
+        if not aperta or x < 0.5 or y <= 0.34:
+            return metallo
+    return fondo
 
 
-def pixel(lato: int) -> bytes:
+def pixel(lato: int, aperta: bool = False) -> bytes:
     righe = bytearray()
     for py in range(lato):
         righe.append(0)  # filtro PNG "nessuno"
@@ -47,7 +57,7 @@ def pixel(lato: int) -> bytes:
             for sy in range(CAMPIONI):
                 for sx in range(CAMPIONI):
                     c = _colore((px + (sx + 0.5) / CAMPIONI) / lato,
-                                (py + (sy + 0.5) / CAMPIONI) / lato)
+                                (py + (sy + 0.5) / CAMPIONI) / lato, aperta)
                     if c:
                         somma[0] += c[0]
                         somma[1] += c[1]
@@ -62,13 +72,13 @@ def pixel(lato: int) -> bytes:
     return bytes(righe)
 
 
-def png(lato: int) -> bytes:
+def png(lato: int, aperta: bool = False) -> bytes:
     def blocco(tipo: bytes, dati: bytes) -> bytes:
         return struct.pack(">I", len(dati)) + tipo + dati + struct.pack(">I", zlib.crc32(tipo + dati))
 
     return (b"\x89PNG\r\n\x1a\n"
             + blocco(b"IHDR", struct.pack(">IIBBBBB", lato, lato, 8, 6, 0, 0, 0))
-            + blocco(b"IDAT", zlib.compress(pixel(lato), 9))
+            + blocco(b"IDAT", zlib.compress(pixel(lato, aperta), 9))
             + blocco(b"IEND", b""))
 
 
