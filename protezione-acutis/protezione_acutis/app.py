@@ -296,7 +296,6 @@ class AppCassaforte:
             self._ultimo_promemoria = self._aperta_da
             self.barra_win.sovrapponi("aperta", "Cassaforte aperta: rischio fuga di notizie")
             self.fascia.pack(fill="x", after=self.fascia.master.winfo_children()[0])
-            self._mostra_striscia()
             self._lampeggia()
         else:
             self._aperta_da = None
@@ -306,8 +305,7 @@ class AppCassaforte:
             self.barra_win.rosso(False)
             self.barra_win.sovrapponi("verde", "Cassaforte: tutto chiuso e protetto")
             self.fascia.pack_forget()
-            if getattr(self, "striscia", None) is not None:
-                self.striscia.withdraw()
+            self.barra_win.vassoio("verde", "Cassaforte: tutto chiuso e protetto")
             self.finestra.title(f"{TITOLO} (tutto chiuso)")
 
     def _lampeggia(self) -> None:
@@ -321,11 +319,8 @@ class AppCassaforte:
         self.barra_win.rosso(self._fase)
         colore = "#D32027" if self._fase else "#8E0F14"
         self.fascia.config(bg=colore)
-        if getattr(self, "striscia", None) is not None:
-            self.striscia.config(bg=colore)
-            for figlio in self.striscia.winfo_children():
-                figlio.config(bg=colore)
-            self.striscia.lift()
+        self.barra_win.vassoio("aperta" if self._fase else "aperta2",
+                               f"\u26a0 CASSAFORTE APERTA ({aperti}): rischio fuga di notizie")
         self.finestra.title(
             f"\u26a0 CASSAFORTE APERTA ({aperti})" if self._fase else "\u26a0 Rischio fuga di notizie")
         adesso = time.monotonic()
@@ -333,44 +328,6 @@ class AppCassaforte:
             self._ultimo_promemoria = adesso
             self._promemoria(int((adesso - self._aperta_da) // 60))
         self._attese["lampeggio"] = self.finestra.after(LAMPEGGIO_MS, self._lampeggia)
-
-    def _area_di_lavoro(self) -> tuple[int, int, int, int]:
-        """Schermo senza la barra delle applicazioni: (sinistra, alto, destra, basso)."""
-        if os.name == "nt":
-            try:
-                import ctypes
-                from ctypes import wintypes
-
-                r = wintypes.RECT()
-                if ctypes.windll.user32.SystemParametersInfoW(0x30, 0, ctypes.byref(r), 0):
-                    return r.left, r.top, r.right, r.bottom
-            except Exception:  # noqa: BLE001
-                pass
-        return 0, 0, self.finestra.winfo_screenwidth(), self.finestra.winfo_screenheight() - 48
-
-    def _mostra_striscia(self) -> None:
-        """Striscia rossa sempre in primo piano appoggiata sopra la barra delle
-        applicazioni, in basso a destra: si vede anche con l'app ridotta a
-        icona o sotto altre finestre. Un clic riporta alla Cassaforte."""
-        if getattr(self, "striscia", None) is None:
-            s = tk.Toplevel(self.finestra, bg="#D32027", cursor="hand2")
-            s.overrideredirect(True)
-            s.attributes("-topmost", True)
-            tk.Label(s, text="\u26a0  CASSAFORTE APERTA", bg="#D32027", fg="white",
-                     font=(self.font[0], 13, "bold")).pack(padx=16, pady=(6, 0), anchor="w")
-            tk.Label(s, text="Rischio fuga di notizie. Clic qui per chiudere e proteggere.",
-                     bg="#D32027", fg="white", font=(self.font[0], 9)).pack(
-                         padx=16, pady=(0, 7), anchor="w")
-            for w in (s, *s.winfo_children()):
-                w.bind("<Button-1>", lambda e: self._torna_alla_finestra())
-            self.striscia = s
-        s = self.striscia
-        s.deiconify()
-        s.update_idletasks()
-        _, _, destra, basso = self._area_di_lavoro()
-        larghezza, altezza = max(s.winfo_reqwidth(), 420), s.winfo_reqheight()
-        s.geometry(f"{larghezza}x{altezza}+{destra - larghezza - 12}+{basso - altezza - 8}")
-        s.lift()
 
     def _torna_alla_finestra(self) -> None:
         self.finestra.deiconify()
@@ -381,34 +338,11 @@ class AppCassaforte:
         self.campo_frase.focus_force()
 
     def _promemoria(self, minuti: int) -> None:
-        """Finestrella in primo piano: la cassaforte è aperta da tanto."""
-        vecchia = getattr(self, "finestra_promemoria", None)
-        if vecchia is not None and vecchia.winfo_exists():
-            vecchia.destroy()
-        w = tk.Toplevel(self.finestra, bg="#D32027")
-        w.title("Cassaforte aperta")
-        w.attributes("-topmost", True)
-        tk.Label(w, text=f"\u26a0  La cassaforte è aperta da {minuti} minuti.", bg="#D32027",
-                 fg="white", font=(self.font[0], 13, "bold")).pack(padx=24, pady=(18, 6))
-        tk.Label(w, text="Finché resta aperta i file sono in chiaro: c'è rischio di fuga di "
-                 "notizie.", bg="#D32027", fg="white", wraplength=380).pack(padx=24)
-        riga = tk.Frame(w, bg="#D32027")
-        riga.pack(pady=16)
-
-        def chiudi_ora():
-            w.destroy()
-            self._torna_alla_finestra()
-
-        ttk.Button(riga, text="Chiudi e proteggi ora", command=chiudi_ora).pack(side="left")
-        ttk.Button(riga, text="Più tardi", command=w.destroy).pack(side="left", padx=8)
-        if os.name == "nt":
-            try:
-                import ctypes
-
-                ctypes.windll.user32.FlashWindow(int(self.finestra.wm_frame(), 16), True)
-            except Exception:  # noqa: BLE001
-                pass
-        self.finestra_promemoria = w
+        """Notifica discreta dall'area di notifica della barra, accanto
+        all'orologio: niente finestre sul piano di lavoro."""
+        self.barra_win.avviso("Cassaforte aperta",
+                              f"Aperta da {minuti} minuti: finché resta aperta c'è rischio di "
+                              "fuga di notizie. Chiudi e proteggi appena puoi.")
 
     def aggiorna_elenco(self) -> None:
         scelto = self.elenco.selection()
@@ -740,6 +674,7 @@ class AppCassaforte:
         self.distruggi()
 
     def distruggi(self) -> None:
+        self.barra_win.rimuovi()
         for attesa in self._attese.values():
             try:
                 self.finestra.after_cancel(attesa)

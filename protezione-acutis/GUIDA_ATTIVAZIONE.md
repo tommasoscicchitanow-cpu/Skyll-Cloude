@@ -188,10 +188,17 @@ stato si vede anche fuori dalla finestra:
 * tutto chiuso: piccolo lucchetto verde sull'angolo dell'icona nella barra
   delle applicazioni;
 * almeno un progetto aperto: lucchetto rosso sull'icona, pulsante della barra
-  che lampeggia di rosso, striscia rossa "CASSAFORTE APERTA, rischio fuga di
-  notizie" sempre in primo piano appena sopra la barra (un clic riporta alla
-  finestra), fascia rossa nella finestra e, ogni 30 minuti, un promemoria in
-  primo piano.
+  che lampeggia di rosso, lucchetto rosso lampeggiante nell'area di notifica
+  accanto all'orologio (passandoci sopra col mouse dice "CASSAFORTE APERTA:
+  rischio fuga di notizie"), fascia rossa nella finestra e, ogni 30 minuti,
+  una notifica discreta di Windows che parte da lì. Nessuna finestra sul
+  piano di lavoro.
+
+Windows 11 a volte nasconde le nuove icone dell'area di notifica sotto la
+freccetta ^ accanto all'orologio: per tenerla sempre in vista, trascina il
+lucchetto dalla freccetta alla barra, oppure Impostazioni, Personalizzazione,
+Barra delle applicazioni, Altre icone della barra di sistema, e attiva
+"Cassaforte" (può comparire come "pythonw").
 
 Costa pochissimo al PC: un controllo ogni 3 secondi sull'esistenza delle
 cartelle di lavoro (senza leggere file) e un cambio di colore al secondo

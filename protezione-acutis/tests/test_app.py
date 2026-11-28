@@ -163,6 +163,15 @@ def test_icona_e_avviso_di_pericolo(app):
         def rosso(self, acceso):
             segnali.append(("rosso", acceso))
 
+        def vassoio(self, nome, descrizione):
+            segnali.append(("vassoio", nome))
+
+        def avviso(self, titolo, testo):
+            segnali.append(("avviso", testo))
+
+        def rimuovi(self):
+            segnali.append(("rimosso",))
+
     app.barra_win = BarraFinta()
     assert app.stato_generale() == "chiusa"
     app.crea_progetto("Idea", FRASE, "hello")
@@ -174,18 +183,22 @@ def test_icona_e_avviso_di_pericolo(app):
     assert app.stato_generale() == "aperta" and ("icona", "aperta") in segnali
     assert app.fascia.winfo_manager() == "pack"
     assert "fuga di notizie" in app.fascia.cget("text")
-    assert app.striscia.winfo_ismapped() or app.striscia.state() == "normal"
+    app._lampeggia()
+    assert {("vassoio", "aperta"), ("vassoio", "aperta2")} <= set(segnali)
     assert "CASSAFORTE APERTA" in app.finestra.title() or "fuga" in app.finestra.title()
     # il promemoria arriva quando è passato il tempo
     app._ultimo_promemoria -= 10_000
     app._lampeggia()
-    assert app.finestra_promemoria.winfo_exists()
-    app.finestra_promemoria.destroy()
+    assert any(x[0] == "avviso" and "fuga di notizie" in x[1] for x in segnali)
+    assert len(app.finestra.winfo_children()) == len([w for w in app.finestra.winfo_children()
+                                                      if not isinstance(w, tk.Toplevel)])
     app.campo_frase.insert(0, FRASE)
     app.azione_chiudi()
     _attendi(app)
-    assert segnali[-1] == ("icona", "verde") and ("rosso", False) in segnali
+    assert segnali[-1] == ("vassoio", "verde") and ("icona", "verde") in segnali
+    assert ("rosso", False) in segnali
     assert app.finestra.title() == "Cassaforte (tutto chiuso)"
     assert app.fascia.winfo_manager() == ""
-    assert app.striscia.state() == "withdrawn"
+    app.distruggi()
+    assert segnali[-1] == ("rimosso",)
     assert "lampeggio" not in app._attese

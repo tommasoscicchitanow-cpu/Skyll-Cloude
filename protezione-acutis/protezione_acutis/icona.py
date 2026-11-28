@@ -26,6 +26,7 @@ BIANCO = (255, 250, 240)
 VARIANTI = {
     "chiusa": (FONDO, ORO, False),   # icona normale: tutto protetto
     "aperta": (ROSSO, BIANCO, True),  # almeno un progetto aperto
+    "aperta2": ((120, 10, 14), (255, 120, 120), True),  # seconda fase del lampeggio
     "verde": (VERDE, BIANCO, False),  # piccolo segnale "tutto chiuso"
 }
 
